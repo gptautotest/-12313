@@ -24,7 +24,8 @@ const SolanaControls = () => {
     setMaxGas,
     swapTime,
     setSwapTime,
-    logs
+    logs,
+    setBalanceLoading
   } = useBotStore();
 
   const [activeTab, setActiveTab] = useState("settings");
@@ -33,7 +34,14 @@ const SolanaControls = () => {
   useEffect(() => {
     const fetchBalance = async () => {
       console.log("Обновление баланса...");
-      await updateBalance();
+      try {
+        setBalanceLoading(true);
+        await updateBalance(privateKey);
+      } catch (error) {
+        console.error("Ошибка при получении баланса:", error);
+      } finally {
+        setBalanceLoading(false);
+      }
     };
 
     fetchBalance();
@@ -41,14 +49,14 @@ const SolanaControls = () => {
     const interval = setInterval(fetchBalance, isRunning ? 3000 : 15000);
 
     return () => clearInterval(interval);
-  }, [privateKey, network, isRunning]);
+  }, [privateKey, network, isRunning, setBalanceLoading]);
 
   const handleKeyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = event.target.value;
     setPrivateKey(value);
     console.log("Приватный ключ обновлен:", value ? "установлен" : "не установлен");
     // Сразу проверим баланс при изменении ключа
-    updateBalance();
+    updateBalance(value);
   };
 
   const handleStartBot = async () => {

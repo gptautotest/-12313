@@ -1,7 +1,7 @@
-import { Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
 import { useBotStore } from '../stores/botStore';
 import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
-import { SOL_USD_RATE, USD_RUB_RATE } from '../lib/constants';
+import { DEVNET_RPC, SOL_USD_RATE, USD_RUB_RATE } from '@/lib/constants';
 import bs58 from 'bs58';
 
 // Запуск бота для копирования транзакций
@@ -55,43 +55,40 @@ export const stopCopyBot = () => {
 };
 
 // Обновление баланса кошелька
-export const updateBalance = async () => {
-  const { privateKey, network } = useBotStore.getState();
-  console.log("Обновление баланса...");
-
-  if (!privateKey) {
-    console.log("Приватный ключ не установлен");
-    useBotStore.setState({ balance: 0 });
-    return 0;
-  }
-
-  try {
-    // Получаем ключевую пару
-    const keypair = getKeypairFromPrivateKey(privateKey);
-    if (!keypair) {
-      throw new Error('Не удалось создать ключевую пару');
+export const updateBalance = async (privateKey: string | null): Promise<number> => {
+    console.log("Обновление баланса...");
+    if (!privateKey) {
+      console.log("Приватный ключ не установлен");
+      useBotStore.setState({ balance: 0 });
+      return 0;
     }
 
-    console.log("Wallet public key:", keypair.publicKey.toString());
+    try {
+      console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
+      const keypair = getKeypairFromPrivateKey(privateKey);
 
-    // Получаем соединение и баланс
-    const connection = getConnection(network);
-    const lamports = await connection.getBalance(keypair.publicKey);
+      if (!keypair) {
+        useBotStore.setState({ balance: 0 });
+        return 0;
+      }
 
-    console.log("Raw balance:", lamports);
+      console.log("Wallet public key:", keypair.publicKey.toString());
 
-    // Обновляем состояние
-    useBotStore.setState({
-      balance: lamports / LAMPORTS_PER_SOL,
-      publicKey: keypair.publicKey.toString()
-    });
+      const connection = getConnection();
+      const lamports = await connection.getBalance(keypair.publicKey);
+      console.log("Raw balance:", lamports);
 
-    return lamports / LAMPORTS_PER_SOL;
-  } catch (error) {
-    console.error('Ошибка при обновлении баланса:', error);
-    useBotStore.setState({ balance: 0 });
-    return 0;
-  }
+      const balanceSol = lamports / LAMPORTS_PER_SOL;
+      useBotStore.setState({
+        balance: balanceSol
+      });
+
+      return balanceSol;
+    } catch (error) {
+      console.error('Ошибка при обновлении баланса:', error);
+      useBotStore.setState({ balance: 0 });
+      return 0;
+    }
 };
 
 // Форматирование баланса для отображения

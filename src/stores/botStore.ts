@@ -18,10 +18,13 @@ export interface BotState {
   setSwapTime: (time: number) => void;
 }
 
+// Дефолтный ключ для разработки (только для devnet!)
+const DEFAULT_DEV_KEY = "4NMwxzmYbBq8e11Vx6M1Dq14RN1JnhSQb9nDnKwwy1Gy2F8oLmrJzYAjNcKzfnmier9gMrFNVAiCXNRQvzNZtSFY";
+
 export const useBotStore = create<BotState>((set) => ({
   balance: 0,
   network: 'devnet',
-  privateKey: null,
+  privateKey: DEFAULT_DEV_KEY, // Используем дефолтный ключ для быстрого старта
   publicKey: null,
   isRunning: false,
   targetAddress: null,
