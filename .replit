@@ -28,7 +28,7 @@ localPort = 8083
 externalPort = 3000
 
 [workflows]
-runButton = "Super Rebuild and Start"
+runButton = "МЕМКОИН-ДЕБАГГЕР"
 
 [[workflows.workflow]]
 name = "Run"
@@ -100,3 +100,40 @@ args = "pkill node || true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "export NODE_OPTIONS=\"--max-old-space-size=4096\" && npm run build && npm run preview -- --host=0.0.0.0 --port=3000"
+
+[[workflows.workflow]]
+name = "МЕМКОИН-ДЕБАГГЕР"
+author = 40936906
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Убиваем всех зомби-процессов Node, которые мешают нашему миллиард-гейму"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill node || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Даем мегаоперативку для нашего супер-бота"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_OPTIONS=\"--max-old-space-size=4096\" "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Строим РАКЕТУ НА ЛУНУ"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# ЗАПУСКАЕМ ДВИГАТЕЛИ! 🚀"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run preview -- --host=0.0.0.0 --port=3000"
