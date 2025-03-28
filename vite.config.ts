@@ -7,12 +7,11 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig({
   resolve: {
     alias: {
-      'buffer': 'buffer',
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  optimizeDeps: {
-    include: ['buffer'],
+  define: {
+    global: 'globalThis',
   },
   server: {
     host: "::",

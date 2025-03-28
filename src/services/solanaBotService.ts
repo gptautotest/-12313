@@ -35,7 +35,10 @@ export const useBotStore = create<BotState>((set) => ({
   setSnipeAmount: (amount) => set({ snipeAmount: amount }),
   setMaxGas: (gas) => set({ maxGas: gas }),
   setSwapTime: (time) => set({ swapTime: time }),
-  addLog: (log) => set((state) => ({ logs: [log, ...state.logs].slice(0, 50) }))
+  addLog: (log) => set((state) => ({ 
+    logs: [log, ...state.logs].slice(0, 50),
+    balance: state.balance // Сохраняем текущий баланс при добавлении лога
+  }))
 }));
 
 // Получение соединения с блокчейном Solana
@@ -131,14 +134,21 @@ export const updateBalance = async () => {
   }
 
   try {
-    console.log("Updating balance with private key:", "Present");
-    console.log("Wallet public key:", keypair.publicKey.toString());
-
     const connection = getConnection();
+    const balance = await connection.getBalance(keypair.publicKey);
     const publicKey = keypair.publicKey.toString();
-
-    // Получаем баланс
-    const lamports = await connection.getBalance(keypair.publicKey);
+    
+    useBotStore.setState({ 
+      balance: balance / LAMPORTS_PER_SOL,
+      publicKey 
+    });
+    
+    return balance;
+  } catch (error) {
+    console.error('Ошибка при обновлении баланса:', error);
+    return 0;
+  }
+};ts = await connection.getBalance(keypair.publicKey);
     console.log("Raw balance:", lamports);
 
     // Обновляем состояние
