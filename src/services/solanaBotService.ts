@@ -1,7 +1,7 @@
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
 import { useBotStore } from '../stores/botStore';
-import bs58 from 'bs58';
-import { DEVNET_RPC } from '../lib/constants';
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
+import { SOL_USD_RATE, USD_RUB_RATE } from '../lib/constants';
 
 // Вспомогательные функции для работы с кошельком
 
@@ -27,95 +27,78 @@ export const getKeypairFromPrivateKey = (privateKeyString: string): Keypair | nu
   }
 };
 
+
 // Функции управления ботом
 
 // Запуск бота для копирования транзакций
 export const startCopyBot = async () => {
-  console.log("Запуск бота...");
+  const { privateKey, targetAddress, maxGasPrice, swapAmountSol, swapTimeSec } = useBotStore.getState();
 
-  const store = useBotStore.getState();
-
-  if (!store.privateKey) {
-    console.error("Приватный ключ не установлен. Невозможно запустить бота.");
-    addLog("🛑 Ошибка: Приватный ключ не установлен");
-    return;
+  if (!privateKey) {
+    console.error('Невозможно запустить бота: приватный ключ не установлен');
+    return false;
   }
 
-  useBotStore.setState({ isRunning: true });
+  if (!targetAddress) {
+    console.error('Невозможно запустить бота: адрес цели не установлен');
+    return false;
+  }
 
-  // Логика запуска бота
-  addLog("🚀 Бот запущен. Начинаем слушать транзакции...");
+  try {
+    useBotStore.setState({ isRunning: true });
 
-  // Здесь должна быть логика подписки на WebSocket события блокчейна
-  // Для демонстрации создадим имитацию работы:
-  startWebsocketConnection();
+    // Здесь будет логика отслеживания и копирования транзакций
+    console.log('Бот запущен с параметрами:', {
+      targetAddress,
+      maxGasPrice: maxGasPrice / LAMPORTS_PER_SOL,
+      swapAmountSol,
+      swapTimeSec
+    });
+
+    // Добавляем лог
+    addLog('Бот запущен успешно. Отслеживаю транзакции...');
+
+    // Здесь можно добавить WebSocket подписки на транзакции
+    // ...
+
+    return true;
+  } catch (error) {
+    console.error('Ошибка при запуске бота:', error);
+    useBotStore.setState({ isRunning: false });
+    addLog(`Ошибка запуска: ${error.message}`);
+    return false;
+  }
 };
 
-// Остановка копирования транзакций
+// Остановка бота
 export const stopCopyBot = () => {
-  console.log("Остановка бота...");
+  try {
+    // Здесь можно добавить логику отписки от WebSocket и т.д.
 
-  useBotStore.setState({ isRunning: false });
-
-  // Отписка от событий
-  stopWebsocketConnection();
-
-  addLog("🛑 Бот остановлен.");
-};
-
-// Имитация WebSocket соединения
-let wsInterval: ReturnType<typeof setInterval> | null = null;
-
-const startWebsocketConnection = () => {
-  console.log("WebSocket connected");
-
-  wsInterval = setInterval(() => {
-    if (Math.random() > 0.7) {
-      const tokenAddress = generateRandomHexString(11);
-      const amount = (Math.random() * 0.5).toFixed(4);
-
-      addLog(`🔍 Найден новый токен: ${tokenAddress}...`);
-      addLog(`💰 Снайпинг токена на сумму ${amount} SOL`);
-
-      if (Math.random() > 0.3) {
-        const txId = generateRandomHexString(10);
-        addLog(`✅ Транзакция выполнена: ${txId}...`);
-      } else {
-        addLog(`❌ Транзакция не удалась. Пробуем снова...`);
-      }
-    }
-  }, 15000);
-};
-
-const stopWebsocketConnection = () => {
-  if (wsInterval) {
-    clearInterval(wsInterval);
-    wsInterval = null;
+    useBotStore.setState({ isRunning: false });
+    addLog('Бот остановлен.');
+    return true;
+  } catch (error) {
+    console.error('Ошибка при остановке бота:', error);
+    return false;
   }
 };
 
-// Вспомогательные функции
-const generateRandomHexString = (length: number): string => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
+// Добавление записи в лог
+export const addLog = (message: string) => {
+  const timestamp = new Date().toLocaleTimeString();
+  const logEntry = `[${timestamp}] ${message}`;
 
-// Добавить лог в хранилище
-const addLog = (message: string) => {
   useBotStore.setState(state => ({
-    logs: [...state.logs, message]
+    logs: [logEntry, ...state.logs].slice(0, 100) // Ограничиваем 100 записями
   }));
 };
 
 // Обновление баланса кошелька
 export const updateBalance = async () => {
-  console.log("Обновление баланса...");
+  const { network, privateKey } = useBotStore.getState();
 
-  const { privateKey, network } = useBotStore.getState();
+  console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
 
   if (!privateKey) {
     console.log("Приватный ключ не установлен");
@@ -123,26 +106,24 @@ export const updateBalance = async () => {
     return 0;
   }
 
-  console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
-
   try {
+    const connection = getConnection(network);
     const keypair = getKeypairFromPrivateKey(privateKey);
 
     if (!keypair) {
+      console.error('Ошибка: невозможно создать keypair из приватного ключа');
       useBotStore.setState({ balance: 0 });
       return 0;
     }
 
-    const connection = getConnection(network);
     const publicKey = keypair.publicKey;
-
     console.log("Wallet public key:", publicKey.toString());
 
-    // Получаем баланс аккаунта
+    // Получаем баланс
     const lamports = await connection.getBalance(publicKey);
     console.log("Raw balance:", lamports);
 
-    // Обновляем баланс в хранилище
+    // Обновляем состояние
     useBotStore.setState({
       balance: lamports / LAMPORTS_PER_SOL,
       publicKey: publicKey.toString()
@@ -158,18 +139,22 @@ export const updateBalance = async () => {
 
 // Форматирование баланса для отображения
 export const formatBalanceDisplay = (balance: number): string => {
-  return `${balance.toFixed(4)} SOL`;
+  return `${balance.toFixed(5)} SOL`;
 };
 
-// Форматирование баланса в рублях
+// Форматирование суммы в рублях
 export const formatRubDisplay = (balance: number): string => {
-  // Предположим, что курс примерно 180$ за SOL и 92 рубля за доллар
-  const solToUsd = 180;
-  const usdToRub = 92;
-  const rubValue = balance * solToUsd * usdToRub;
+  const usdValue = balance * SOL_USD_RATE;
+  const rubValue = usdValue * USD_RUB_RATE;
+  return `≈ ${rubValue.toFixed(0)} ₽`;
+};
 
-  // Форматируем с разделителями тысяч
-  return `≈ ${rubValue.toLocaleString('ru-RU', {
-    maximumFractionDigits: 0
-  })} ₽`;
+// Вспомогательные функции
+const generateRandomHexString = (length: number): string => {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 };

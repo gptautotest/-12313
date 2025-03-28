@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
@@ -75,7 +74,7 @@ const SolanaControls = () => {
   return (
     <div className="fixed left-0 top-0 bottom-0 w-64 bg-card shadow-lg p-4 overflow-y-auto">
       <h2 className="text-xl font-bold mb-4">Solana Бот</h2>
-      
+
       <div className="mb-4 p-3 bg-muted rounded-md">
         <div className="font-medium">Баланс: {formatBalanceDisplay(balance)}</div>
         <div className="text-sm text-muted-foreground">{formatRubDisplay(balance)}</div>
@@ -94,7 +93,7 @@ const SolanaControls = () => {
           <TabsTrigger value="settings" className="flex-1">Настройки</TabsTrigger>
           <TabsTrigger value="logs" className="flex-1">Логи</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="settings" className="space-y-4">
           <div className="space-y-2">
             <label className="block text-sm font-medium mb-1">
@@ -124,7 +123,7 @@ const SolanaControls = () => {
                 onValueChange={handleSnipeAmountChange} 
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">
                 Макс газ: {maxGas.toFixed(3)} SOL
@@ -136,7 +135,7 @@ const SolanaControls = () => {
                 onValueChange={handleMaxGasChange} 
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">
                 Время свапа: {swapTime} сек
@@ -167,7 +166,7 @@ const SolanaControls = () => {
             )}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="logs" className="h-[calc(100vh-230px)] overflow-y-auto">
           {logs.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
