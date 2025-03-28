@@ -16,8 +16,8 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 8080,
-    strictPort: true, // Гарантирует использование только указанного порта
+    port: 3000,
+    strictPort: false, // Разрешаем использовать альтернативный порт если основной занят
     hmr: {
       clientPort: 443,
       host: "0.0.0.0"
@@ -28,8 +28,8 @@ export default defineConfig({
   },
   preview: {
     host: "0.0.0.0",
-    port: 8080,
-    strictPort: true
+    port: 3000,
+    strictPort: false
   },
   plugins: [
     react(),
