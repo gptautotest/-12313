@@ -36,3 +36,29 @@ export const getKeypairFromPrivateKey = (privateKeyString?: string): Keypair | n
     return null;
   }
 };
+import { Connection, Keypair, clusterApiUrl } from '@solana/web3.js';
+import { useBotStore } from '../stores/botStore';
+import bs58 from 'bs58';
+
+// Получение соединения Solana в зависимости от выбранной сети
+export const getConnection = (): Connection => {
+  const network = useBotStore.getState().network;
+  const endpoint = network === 'devnet' ? clusterApiUrl('devnet') : clusterApiUrl('mainnet-beta');
+  return new Connection(endpoint, 'confirmed');
+};
+
+// Получение объекта Keypair из приватного ключа
+export const getKeypairFromPrivateKey = (privateKey: string | null): Keypair | null => {
+  if (!privateKey) {
+    console.log("Приватный ключ не установлен");
+    return null;
+  }
+  
+  try {
+    const decodedKey = bs58.decode(privateKey);
+    return Keypair.fromSecretKey(decodedKey);
+  } catch (error) {
+    console.error("Ошибка при создании Keypair:", error);
+    return null;
+  }
+};
