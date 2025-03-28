@@ -24,7 +24,7 @@ localPort = 8083
 externalPort = 3000
 
 [workflows]
-runButton = "Run Production Server"
+runButton = "Run Dev Server"
 
 [[workflows.workflow]]
 name = "Run"
@@ -61,3 +61,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run build && npm run preview -- --host=0.0.0.0 --port=8080 --force"
+
+[[workflows.workflow]]
+name = "Production Preview"
+author = 40936906
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build && npm run preview -- --host=0.0.0.0 --port=8080"

@@ -17,14 +17,19 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 8080,
-    strictPort: false, // Автоматически найдёт свободный порт
+    strictPort: true, // Гарантирует использование только указанного порта
     hmr: {
-      overlay: true,
-      clientPort: 443
+      clientPort: 443,
+      host: "0.0.0.0"
     },
     watch: {
-      usePolling: true // Улучшает стабильность в контейнерах
+      usePolling: true
     },
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 8080,
+    strictPort: true
   },
   plugins: [
     react(),
