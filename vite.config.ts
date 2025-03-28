@@ -17,9 +17,13 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 8080,
+    strictPort: false, // Автоматически найдёт свободный порт
     hmr: {
       overlay: true,
-      clientPort: 443   // Исправляет проблемы с HMR за NAT/прокси
+      clientPort: 443
+    },
+    watch: {
+      usePolling: true // Улучшает стабильность в контейнерах
     },
   },
   plugins: [
