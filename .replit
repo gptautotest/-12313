@@ -1,14 +1,16 @@
-entrypoint = "index.js"
-modules = ["nodejs-22"]
-hidden = [".config", "package-lock.json"]
-
-[gitHubImport]
-requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
+modules = ["nodejs-20", "web"]
+run = "npm run dev"
 
 [nix]
-channel = "stable-24_11"
+channel = "stable-24_05"
 
 [deployment]
-run = ["node", "index.js"]
-deploymentTarget = "autoscale"
-ignorePorts = false
+run = ["sh", "-c", "npm run dev"]
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081

@@ -1,0 +1,138 @@
+# Настройки снайпинга (с учетом требований пользователя)
+            "snipe_amount": 0.1,
+            "slippage": 5.0,
+            "min_volume": 5000,         # Минимальный объем $5000 
+            "min_holders": 2,           # Минимальное количество холдеров 2
+            "max_age": 0.017,          # Максимальный возраст 1 минута (0.017 часа)
+            "min_pump_score": 70,
+            "use_pumpfun": True,
+            
+            # Настройки копирования
+            "copy_amount": 0.05
+        }
+        
+        # Инициализация бота в режиме снайпинга по умолчанию
+        self.initialize_bot("snipe")
+    
+    def log(self, msg, level="info"):
+        """Логирование сообщений"""
+        color = None
+        if level == "error":
+            color = "red"
+        elif level == "warning":
+            color = "yellow"
+        elif level == "success":
+            color = "green"
+        elif level == "info":
+            color = "cyan"
+            
+        if color:
+            print(colored(msg, color))
+        else:
+            print(msg)
+    
+    def initialize_bot(self, mode):
+        """Инициализация бота с текущими настройками"""
+        try:
+            from solana_copy_bot import CopyBot
+            
+            # Сбрасываем предыдущий экземпляр, если есть
+            self.bot = None
+            
+            # Создаем новый экземпляр с текущими настройками
+            self.bot = CopyBot(
+                target_wallet=self.settings["target_wallet"],
+                amount=self.settings["copy_amount"],
+                network=self.settings["network"],
+                private_key=self.settings["private_key"],
+                verbose=self.settings["verbose"],
+                mode=mode,
+                snipe_amount=self.settings["snipe_amount"],
+                slippage=self.settings["slippage"],
+                min_volume=self.settings["min_volume"],
+                min_holders=self.settings["min_holders"],
+                max_age=self.settings["max_age"],
+                min_pump_score=self.settings["min_pump_score"],
+                use_pumpfun=self.settings["use_pumpfun"]
+            )
+            
+            # Проверяем, что бот успешно создан
+            if self.bot:
+                print(colored(f"Бот успешно инициализирован в режиме: {mode}", "green"))
+            else:
+                print(colored(f"Ошибка: не удалось создать экземпляр бота", "red"))
+                
+        except ImportError as ie:
+            print(colored(f"Ошибка импорта: не удалось импортировать модуль solana_copy_bot.py: {str(ie)}", "red"))
+            self.bot = None
+        except Exception as e:
+            print(colored(f"Ошибка при инициализации бота: {str(e)}", "red"))
+            self.bot = None
+    
+    def clear_screen(self):
+        """Очистка экрана терминала"""
+        os.system('cls' if os.name == 'nt' else 'clear')
+    
+    def print_header(self):
+        """Отображение заголовка"""
+        self.clear_screen()
+        print(colored("=" * 70, "cyan"))
+        print(colored("               SOLANA TRANSACTION COPY BOT - v1.0               ", "cyan", attrs=["bold"]))
+        print(colored("=" * 70, "cyan"))
+        print()
+    
+    def print_main_menu(self):
+        """Отображение главного меню"""
+        self.print_header()
+        
+        # Обновляем и показываем баланс кошелька
+        if self.bot:
+            balance = self.bot.update_balance()
+            print(colored(f"Баланс кошелька: {balance} SOL", "green"))
+            # Адрес кошелька получаем из лога бота
+            wallet_address = "2JmAk3TkhxsT3WeAXKpR19v7551CioEXwcyFRb6ty7TE"
+            print(colored(f"Адрес кошелька: {wallet_address}", "green"))
+            print(colored(f"Сеть: {self.bot.network}", "green"))
+        
+        print("\n" + colored("ГЛАВНОЕ МЕНЮ:", "yellow", attrs=["bold"]))
+        print("1. " + colored("Запустить режим снайпинга токенов", "green"))
+        print("2. " + colored("Запустить режим копирования транзакций", "green"))
+        print("3. " + colored("Прямой снайпинг токена по адресу", "green"))
+        print("4. " + colored("Настройки параметров снайпинга", "yellow"))
+        print("5. " + colored("Настройки параметров копирования", "yellow"))
+        print("6. " + colored("Просмотр истории снайпов", "blue"))
+        print("7. " + colored("Просмотр истории транзакций", "blue"))
+        print("8. " + colored("Изменить настройки сети", "magenta"))
+        print("0. " + colored("Выход", "red"))
+        
+        choice = input("\nВыберите опцию (0-8): ")
+        return choice
+    
+    def print_snipe_settings(self):
+        """Отображение и изменение настроек снайпинга"""
+        while True:
+            self.print_header()
+            print(colored("НАСТРОЙКИ СНАЙПИНГА:", "yellow", attrs=["bold"]))
+            print(f"1. Сумма SOL для снайпа: {colored(self.settings['snipe_amount'], 'green')} SOL")
+            print(f"2. Проскальзывание: {colored(self.settings['slippage'], 'green')}%")
+            print(f"3. Минимальный объем: ${colored(self.settings['min_volume'], 'green')}")
+            print(f"4. Минимальное количество холдеров: {colored(self.settings['min_holders'], 'green')}")
+            print(f"5. Максимальный возраст токена: {colored(self.settings['max_age'], 'green')} часов")
+            print(f"6. Минимальный pump score: {colored(self.settings['min_pump_score'], 'green')}")
+            print(f"7. Использовать pump.fun: {colored('Да' if self.settings['use_pumpfun'] else 'Нет', 'green')}")
+            print("0. Вернуться в главное меню")
+            
+            choice = input("\nВыберите параметр для изменения (0-7): ")
+            
+            if choice == "0":
+                break
+            elif choice == "1":
+                try:
+                    value = float(input("Введите сумму SOL для снайпа: "))
+                    if value > 0:
+                        self.settings["snipe_amount"] = value
+                except ValueError:
+                    print(colored("Ошибка! Введите корректное число.", "red"))
+                    time.sleep(1)
+            elif choice == "2":
+                try:
