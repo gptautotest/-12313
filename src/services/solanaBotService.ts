@@ -135,21 +135,21 @@ export const updateBalance = async () => {
 
   try {
     const connection = getConnection();
-    const balance = await connection.getBalance(keypair.publicKey);
+    const lamports = await connection.getBalance(keypair.publicKey);
     const publicKey = keypair.publicKey.toString();
     
     useBotStore.setState({ 
-      balance: balance / LAMPORTS_PER_SOL,
+      balance: lamports / LAMPORTS_PER_SOL,
       publicKey 
     });
     
-    return balance;
+    console.log("Баланс обновлен:", lamports / LAMPORTS_PER_SOL, "SOL");
+    return lamports / LAMPORTS_PER_SOL;
   } catch (error) {
     console.error('Ошибка при обновлении баланса:', error);
+    useBotStore.setState({ balance: 0 });
     return 0;
   }
-};ts = await connection.getBalance(keypair.publicKey);
-    console.log("Raw balance:", lamports);
 
     // Обновляем состояние
     useBotStore.setState({ 

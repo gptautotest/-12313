@@ -39,7 +39,7 @@ const SolanaControls = () => {
 
     fetchBalance();
     // Обновляем баланс чаще при работающем боте
-    const interval = setInterval(fetchBalance, isRunning ? 5000 : 10000);
+    const interval = setInterval(fetchBalance, isRunning ? 3000 : 15000);
 
     return () => clearInterval(interval);
   }, [privateKey, network, isRunning]);
