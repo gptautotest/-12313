@@ -15,7 +15,7 @@ export const getConnection = (network: 'devnet' | 'mainnet' = 'devnet'): Connect
 
 /**
  * Преобразование приватного ключа в объект Keypair
- * @param privateKey Приватный ключ в base58 формате
+ * @param privateKey Приватный ключ в base58 формате или массив байтов
  * @returns Объект Keypair или null при ошибке
  */
 export const getKeypairFromPrivateKey = (privateKey: string | null): Keypair | null => {
@@ -25,8 +25,16 @@ export const getKeypairFromPrivateKey = (privateKey: string | null): Keypair | n
   }
 
   try {
-    const decodedKey = bs58.decode(privateKey);
-    return Keypair.fromSecretKey(decodedKey);
+    if (privateKey.startsWith('[') && privateKey.endsWith(']')) {
+      const bytesArray = JSON.parse(privateKey);
+      if (!Array.isArray(bytesArray) || bytesArray.length !== 64) {
+        throw new Error("Неверный формат массива байтов приватного ключа");
+      }
+      return Keypair.fromSecretKey(new Uint8Array(bytesArray));
+    } else {
+      const decodedKey = bs58.decode(privateKey);
+      return Keypair.fromSecretKey(decodedKey);
+    }
   } catch (error) {
     console.error("Ошибка при создании Keypair:", error);
     return null;
@@ -75,25 +83,27 @@ export const formatPublicKey = (publicKey: PublicKey | null | string): string =>
 
 /**
  * Проверка валидности приватного ключа
+ * @param key Приватный ключ
+ * @returns true если ключ валидный
  */
-export const isValidPrivateKey = (privateKey: string): boolean => {
-  if (!privateKey) return false;
-
+export const isValidPrivateKey = (key: string): boolean => {
   // Проверка на формат массива байтов
-  if (privateKey.startsWith('[') && privateKey.endsWith(']')) {
+  if (key.startsWith('[') && key.endsWith(']')) {
     try {
-      const bytesArray = JSON.parse(privateKey);
+      const bytesArray = JSON.parse(key);
       return Array.isArray(bytesArray) && bytesArray.length === 64;
     } catch (error) {
-      console.error("Ошибка при проверке массива приватного ключа:", error);
+      console.error("Ошибка при парсинге массива байтов:", error);
       return false;
     }
-  }
+  } 
 
-  // Проверка на стандартный base58 формат
+  // Проверка на формат Base58
   try {
-    const decodedKey = bs58.decode(privateKey);
-    return decodedKey.length === 64;
+    // Проверяем, можно ли декодировать ключ из base58
+    const decoded = bs58.decode(key);
+    // Валидный ключ должен быть длиной 64 байта (512 бит)
+    return decoded.length === 64;
   } catch (error) {
     return false;
   }

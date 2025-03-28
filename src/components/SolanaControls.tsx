@@ -67,26 +67,27 @@ const SolanaControls: React.FC = () => {
     const key = e.target.value;
     setPrivateKeyInput(key);
 
-    // Проверяем, является ли ключ массивом чисел в строковом представлении
-    let isValid = isValidPrivateKey(key);
-
-    // Дополнительно проверяем формат массива байтов
-    if (!isValid && key.startsWith('[') && key.endsWith(']')) {
-      try {
-        const bytesArray = JSON.parse(key);
-        isValid = Array.isArray(bytesArray) && bytesArray.length === 64;
-        console.log("Обнаружен приватный ключ в формате массива байтов");
-      } catch (err) {
-        console.error("Ошибка при парсинге массива приватного ключа:", err);
-      }
-    }
-
+    // Используем обновленную функцию проверки, поддерживающую оба формата
+    const isValid = isValidPrivateKey(key);
     setIsValidPrivKey(isValid);
 
     if (isValid) {
-      const pubKey = getPublicKeyFromPrivate(key);
-      setPublicKey(pubKey ? pubKey.toString() : '');
+      console.log("Приватный ключ валидный, получаем публичный ключ");
+      try {
+        const pubKey = getPublicKeyFromPrivate(key);
+        if (pubKey) {
+          console.log("Публичный ключ успешно получен:", pubKey.toString());
+          setPublicKey(pubKey.toString());
+        } else {
+          console.error("Публичный ключ не получен");
+          setPublicKey('');
+        }
+      } catch (error) {
+        console.error("Ошибка при получении публичного ключа:", error);
+        setPublicKey('');
+      }
     } else {
+      console.log("Приватный ключ невалидный");
       setPublicKey('');
     }
   };
