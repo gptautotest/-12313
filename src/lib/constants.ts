@@ -13,3 +13,12 @@ export const DEFAULT_KEY = "139,219,161,216,20,10,91,48,109,78,176,175,7,168,232
 
 // Системный ID для транзакций SOL
 export const SYSTEM_ID = new PublicKey("11111111111111111111111111111111");
+import { clusterApiUrl } from '@solana/web3.js';
+
+// RPC эндпоинты
+export const DEVNET_RPC = clusterApiUrl('devnet');
+export const MAINNET_RPC = clusterApiUrl('mainnet-beta');
+
+// Другие константы
+export const SOL_USD_RATE = 180; // Примерный курс SOL к USD
+export const USD_RUB_RATE = 92; // Примерный курс USD к RUB

@@ -1,9 +1,8 @@
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
-import { create } from 'zustand';
-import { DEVNET_RPC, DEFAULT_KEY } from '@/lib/constants';
+import { useBotStore, BotState } from '../stores/botStore';
 import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
 
-// Интерфейс для состояния бота
+// Сервис для работы с ботом Solanaостояния бота
 interface BotState {
   balance: number;
   isRunning: boolean;
