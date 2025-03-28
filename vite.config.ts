@@ -15,8 +15,12 @@ export default defineConfig({
     global: 'globalThis',
   },
   server: {
-    host: "0.0.0.0",  // Используем 0.0.0.0 вместо :: для широкой совместимости
+    host: "0.0.0.0",
     port: 8080,
+    hmr: {
+      overlay: true,
+      clientPort: 443   // Исправляет проблемы с HMR за NAT/прокси
+    },
   },
   plugins: [
     react(),

@@ -4,6 +4,8 @@ import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionServi
 import { DEVNET_RPC, SOL_USD_RATE, USD_RUB_RATE } from '@/lib/constants';
 import bs58 from 'bs58';
 
+// Сервис для работы с ботом Solana
+
 // Запуск бота для копирования транзакций
 export const startCopyBot = async () => {
   const { privateKey, targetAddress, maxGasPrice, swapAmountSol, swapTimeSec } = useBotStore.getState();
