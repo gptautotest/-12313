@@ -28,7 +28,7 @@ localPort = 8083
 externalPort = 3000
 
 [workflows]
-runButton = "МЕМКОИН-ДЕБАГГЕР"
+runButton = "СУПЕР-МЕМКОИН-ЗАПУСК"
 
 [[workflows.workflow]]
 name = "Run"
@@ -137,3 +137,52 @@ args = "# ЗАПУСКАЕМ ДВИГАТЕЛИ! 🚀"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run preview -- --host=0.0.0.0 --port=3000"
+
+[[workflows.workflow]]
+name = "СУПЕР-МЕМКОИН-ЗАПУСК"
+author = 40936906
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Убиваем все процессы node, чтобы очистить порты"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill node || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Очищаем кэш npm если что-то сломалось"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm cache clean --force || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Даем МЕГА оперативку для нашего бота-миллионера"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_OPTIONS=\"--max-old-space-size=4096\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Запускаем в PREVIEW режиме - более стабильный"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build && npm run preview -- --host=0.0.0.0 --port=3000"

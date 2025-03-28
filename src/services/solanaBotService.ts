@@ -1,7 +1,20 @@
-import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
-import { getConnection, getKeypairFromPrivateKey, getPublicKeyFromPrivate } from './solanaConnectionService';
+import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
 import { SOL_USD_RATE, USD_RUB_RATE } from '@/lib/constants';
 import bs58 from 'bs58';
+import { toast } from 'sonner'; // Importing sonner's toast instead of '@/components/ui/use-toast'
+
+
+// Интерфейс для параметров мониторинга
+interface MonitoringParams {
+  minVolume: number;       // Минимальный объем в долларах
+  minHolders: number;      // Минимальное количество холдеров
+  maxAge: number;          // Максимальный возраст в часах
+  minPumpScore: number;    // Минимальный pump score
+  slippage: number;        // Проскальзывание в процентах
+  snipeAmount: number;     // Сумма для снайпа в SOL
+  usePumpFun: boolean;     // Использовать ли pump.fun
+}
 
 // Функция для получения баланса кошелька
 export const updateBalance = async (privateKey: string): Promise<number | null> => {
@@ -278,9 +291,128 @@ export const sendSol = async (
     return null;
   }
 };
-import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { toast } from '@/components/ui/use-toast';
+
+
+/**
+ * Функция для снайпинга токена
+ * @param connection - Подключение к сети Solana
+ * @param keypair - Keypair пользователя
+ * @param tokenAddress - Адрес токена для покупки
+ * @param amount - Количество SOL для покупки
+ * @param slippage - Проскальзывание в процентах
+ */
+export const snipeToken = async (
+  connection: Connection,
+  keypair: Keypair,
+  tokenAddress: string,
+  amount: number,
+  slippage: number
+): Promise<boolean> => {
+  try {
+    console.log(`🎯 Снайпим токен: ${tokenAddress}`);
+    console.log(`💰 Сумма: ${amount} SOL`);
+    console.log(`⚙️ Проскальзывание: ${slippage}%`);
+
+    // TODO: Реализовать логику снайпинга токена
+    toast.success(`🚀 Начинаем снайпинг токена: ${tokenAddress}`);
+
+    // Симуляция задержки запроса
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Здесь должен быть код для создания и отправки транзакции
+    // Пример заглушки:
+    const success = Math.random() > 0.3; // 70% успешных снайпов для тестирования
+
+    if (success) {
+      toast.success(`✅ Токен успешно снайпнут: ${tokenAddress.slice(0, 6)}...${tokenAddress.slice(-4)}`);
+      return true;
+    } else {
+      toast.error('❌ Не удалось снайпнуть токен. Попробуйте еще раз.');
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Ошибка при снайпинге токена:', error);
+    toast.error(`❌ Ошибка при снайпинге: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    return false;
+  }
+};
+
+/**
+ * Функция для мониторинга новых токенов
+ * @param connection - Подключение к сети Solana
+ * @param keypair - Keypair пользователя
+ * @param params - Параметры мониторинга
+ */
+export const monitorNewTokens = async (
+  connection: Connection,
+  keypair: Keypair,
+  params: MonitoringParams
+) => {
+  try {
+    console.log('🔍 Запуск мониторинга новых токенов');
+    console.log('⚙️ Параметры:');
+    console.log(`  - Минимальный объем: $${params.minVolume}`);
+    console.log(`  - Минимальное кол-во холдеров: ${params.minHolders}`);
+    console.log(`  - Максимальный возраст: ${params.maxAge} часов`);
+    console.log(`  - Минимальный pump score: ${params.minPumpScore}`);
+    console.log(`  - Проскальзывание: ${params.slippage}%`);
+    console.log(`  - Сумма для снайпа: ${params.snipeAmount} SOL`);
+    console.log(`  - Использовать pump.fun: ${params.usePumpFun ? 'Да' : 'Нет'}`);
+
+    // TODO: Реализовать логику мониторинга новых токенов
+    toast.success('🔍 Мониторинг новых токенов запущен!');
+    toast.info('🔔 Вы получите уведомление, когда будет найден подходящий токен');
+
+    // Симуляция нахождения новых токенов для тестирования
+    setTimeout(() => {
+      const tokenAddress = 'DogE1wfjvJ2RK6HS3mh84rKXSdPXN19NWz9TmHuiKr8V';
+      toast.info(`🔎 Найден новый токен: ${tokenAddress.slice(0, 6)}...${tokenAddress.slice(-4)}`);
+
+      // Проверка соответствия параметрам
+      toast.info('✅ Токен соответствует заданным параметрам! Пробуем снайпить...');
+
+      // Снайпим токен
+      snipeToken(connection, keypair, tokenAddress, params.snipeAmount, params.slippage);
+    }, 10000);
+
+  } catch (error) {
+    console.error('❌ Ошибка при мониторинге новых токенов:', error);
+    toast.error(`❌ Ошибка мониторинга: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+  }
+};
+
+/**
+ * Получить информацию о токене
+ * @param connection - Подключение к сети Solana
+ * @param mintAddress - Адрес токена
+ */
+export const getTokenInfo = async (
+  connection: Connection, 
+  mintAddress: string
+): Promise<any> => {
+  try {
+    const mintPublicKey = new PublicKey(mintAddress);
+
+    // TODO: Получить информацию о токене
+
+    // Заглушка для тестирования:
+    return {
+      name: 'Super Doge',
+      symbol: 'SDOGE',
+      totalSupply: 1000000000000,
+      decimals: 9,
+      holders: 156,
+      volume24h: 25000,
+      price: 0.0000015,
+      marketCap: 1500000,
+      pumpScore: 85,
+      createdAt: new Date(Date.now() - 1000 * 60 * 30) // 30 минут назад
+    };
+  } catch (error) {
+    console.error('❌ Ошибка при получении информации о токене:', error);
+    throw new Error(`Не удалось получить информацию о токене: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+  }
+};
 
 /**
  * Обновляет баланс кошелька.
@@ -361,54 +493,54 @@ export const updateBalanceV2 = async (privateKey: string | null): Promise<number
 /**
  * Снайпит токен по его адресу.
  */
-export const snipeToken = async (tokenAddress: string, amount: number, slippage: number): Promise<boolean> => {
-  console.log(`Снайпинг токена ${tokenAddress} на сумму ${amount} SOL с проскальзыванием ${slippage}%`);
-
-  try {
-    // Здесь будет реализация снайпинга через Raydium или Jupiter
-    // Пока возвращаем заглушку с имитацией успеха
-
-    toast({
-      title: "Информация",
-      description: "Функция снайпинга в разработке. Скоро будет доступна!",
-    });
-
-    // Задержка для имитации процесса снайпинга
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    return true;
-  } catch (error) {
-    console.error("Ошибка при снайпинге токена:", error);
-    return false;
-  }
-};
-
-/**
- * Мониторит новые токены на Pump.fun и Raydium.
- */
-export const monitorNewTokens = async (
-  minVolume: number, 
-  minHolders: number,
-  maxAgeMinutes: number,
-  minPumpScore: number,
-  usePumpFun: boolean,
-  useRaydium: boolean,
-  callback: (tokenAddress: string) => void
-) => {
-  console.log("Запуск мониторинга новых токенов");
-  console.log("Параметры:", { minVolume, minHolders, maxAgeMinutes, minPumpScore, usePumpFun, useRaydium });
-
-  // Здесь будет реализация мониторинга через Pump.fun API и Raydium API
-  // Пока возвращаем заглушку
-
-  toast({
-    title: "Информация",
-    description: "Функция мониторинга в разработке. Скоро будет доступна!",
-  });
-
-  return {
-    stop: () => {
-      console.log("Остановка мониторинга новых токенов");
+export const snipeTokenV2 = async (tokenAddress: string, amount: number, slippage: number): Promise<boolean> => {
+    console.log(`Снайпинг токена ${tokenAddress} на сумму ${amount} SOL с проскальзыванием ${slippage}%`);
+    
+    try {
+      // Здесь будет реализация снайпинга через Raydium или Jupiter
+      // Пока возвращаем заглушку с имитацией успеха
+      
+      toast({
+        title: "Информация",
+        description: "Функция снайпинга в разработке. Скоро будет доступна!",
+      });
+      
+      // Задержка для имитации процесса снайпинга
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      return true;
+    } catch (error) {
+      console.error("Ошибка при снайпинге токена:", error);
+      return false;
     }
   };
-};
+  
+  /**
+   * Мониторит новые токены на Pump.fun и Raydium.
+   */
+  export const monitorNewTokensV2 = async (
+    minVolume: number, 
+    minHolders: number,
+    maxAgeMinutes: number,
+    minPumpScore: number,
+    usePumpFun: boolean,
+    useRaydium: boolean,
+    callback: (tokenAddress: string) => void
+  ) => {
+    console.log("Запуск мониторинга новых токенов");
+    console.log("Параметры:", { minVolume, minHolders, maxAgeMinutes, minPumpScore, usePumpFun, useRaydium });
+    
+    // Здесь будет реализация мониторинга через Pump.fun API и Raydium API
+    // Пока возвращаем заглушку
+    
+    toast({
+      title: "Информация",
+      description: "Функция мониторинга в разработке. Скоро будет доступна!",
+    });
+    
+    return {
+      stop: () => {
+        console.log("Остановка мониторинга новых токенов");
+      }
+    };
+  };

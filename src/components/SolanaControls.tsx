@@ -1,163 +1,300 @@
-import { useState, useEffect } from 'react';
-import { updateBalanceV2 } from '../services/solanaBotService'; // Assuming updateBalanceV2 exists
-import { Separator } from './ui/separator';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { toast } from './ui/use-toast';
 
-const SolanaControls: React.FC = () => {
-  const [privateKey, setPrivateKey] = useState('');
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { initializeSolanaConnection, getKeypairFromPrivateKey, getSolanaBalance } from '@/services/solanaConnectionService';
+import { snipeToken, monitorNewTokens } from '@/services/solanaBotService';
+
+interface SolanaControlsProps {
+  // Добавляем пропсы, если они нужны
+}
+
+const SolanaControls: React.FC<SolanaControlsProps> = () => {
+  // Состояние для приватного ключа и сети
+  const [privateKey, setPrivateKey] = useState<string>("");
+  const [network, setNetwork] = useState<string>("devnet");
+  const [isConnected, setIsConnected] = useState<boolean>(false);
   const [balance, setBalance] = useState<number | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-  const [network, setNetwork] = useState<'devnet' | 'mainnet'>('devnet');
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isMonitoring, setIsMonitoring] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    console.log("💹 Обновление баланса...");
-    let isActive = true;
-    
-    const doRefresh = async () => {
-      if (privateKey && isActive) {
-        await refreshBalance();
+  // Функция для подключения к сети Solana
+  const handleConnect = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (!privateKey.trim()) {
+        toast.error("🔑 Введите приватный ключ!");
+        return;
       }
-    };
-    
-    doRefresh().catch(err => {
-      console.error("🚨 Непредвиденная ошибка в useEffect:", err);
-    });
-    
-    // Функция очистки для предотвращения обновления состояния после размонтирования
-    return () => {
-      isActive = false;
-    };
-  }, [privateKey, network]);
 
-  // Обновление баланса с защитой от ошибок
-  const refreshBalance = async () => {
-    if (!privateKey) return;
-    
-    console.log("🔄 Запрос обновления баланса с приватным ключом...");
-    setConnectionStatus('connecting');
+      const trimmedKey = privateKey.trim();
+      
+      // Инициализируем соединение
+      const connection = initializeSolanaConnection(network);
+      
+      // Получаем keypair из приватного ключа
+      const keypair = await getKeypairFromPrivateKey(trimmedKey);
+      if (!keypair) {
+        toast.error("🔑 Не удалось создать keypair из приватного ключа!");
+        return;
+      }
+      
+      // Получаем адрес кошелька
+      const walletAddr = keypair.publicKey.toString();
+      setWalletAddress(walletAddr);
+      
+      // Получаем баланс
+      try {
+        const userBalance = await getSolanaBalance(connection, keypair.publicKey);
+        setBalance(userBalance);
+      } catch (err) {
+        console.error("Ошибка при получении баланса:", err);
+        setBalance(0);
+      }
+      
+      // Устанавливаем флаг подключения
+      setIsConnected(true);
+      
+      toast.success(`🚀 Подключено к ${network}!`);
+      
+      // Сохраняем ключ и сеть в local storage
+      localStorage.setItem('privateKey', trimmedKey);
+      localStorage.setItem('network', network);
+    } catch (error) {
+      console.error("Ошибка подключения:", error);
+      toast.error(`❌ Ошибка подключения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Функция для отключения
+  const handleDisconnect = () => {
+    setIsConnected(false);
+    setBalance(null);
+    setWalletAddress(null);
+    if (isMonitoring) {
+      handleStopMonitoring();
+    }
+    toast.info("🔌 Отключено от сети Solana");
+  };
+
+  // Функция для обновления баланса
+  const handleRefreshBalance = async () => {
+    if (!isConnected || !walletAddress) return;
     
     try {
-      // Оборачиваем в Promise.resolve для предотвращения unhandledrejection
-      const newBalance = await Promise.resolve().then(() => updateBalanceV2(privateKey));
-      
-      console.log("💰 Полученный баланс:", newBalance);
-      // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
-      setBalance(newBalance !== null ? newBalance : 0);
-      setConnectionStatus('connected');
-    } catch (error) {
-      console.error("🚨 Ошибка при обновлении баланса:", error);
-      setConnectionStatus('disconnected');
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить баланс. Проверьте консоль для деталей.",
-        variant: "destructive"
-      });
-    } finally {
-      // Гарантируем, что статус не останется в "connecting" навсегда
-      if (connectionStatus === 'connecting') {
-        setConnectionStatus('disconnected');
+      setIsLoading(true);
+      const connection = initializeSolanaConnection(network);
+      const keypair = await getKeypairFromPrivateKey(privateKey);
+      if (!keypair) {
+        toast.error("🔑 Не удалось создать keypair из приватного ключа!");
+        return;
       }
+      
+      const userBalance = await getSolanaBalance(connection, keypair.publicKey);
+      setBalance(userBalance);
+      
+      toast.success("💰 Баланс обновлен!");
+    } catch (error) {
+      console.error("Ошибка обновления баланса:", error);
+      toast.error(`❌ Ошибка обновления баланса: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Обработчик изменения приватного ключа
-  const handlePrivateKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPrivateKey(value);
-    setConnectionStatus('connecting');
-  };
-
-  // Обработчик изменения сети
-  const handleNetworkChange = (value: string) => {
-    setNetwork(value as 'devnet' | 'mainnet');
-    if (privateKey) {
-      setConnectionStatus('connecting');
-      setTimeout(() => refreshBalance(), 1000);
+  // Функция для запуска мониторинга новых токенов
+  const handleStartMonitoring = async () => {
+    if (!isConnected) {
+      toast.error("🔌 Сначала подключитесь к сети Solana!");
+      return;
+    }
+    
+    try {
+      setIsMonitoring(true);
+      const connection = initializeSolanaConnection(network);
+      const keypair = await getKeypairFromPrivateKey(privateKey);
+      
+      if (!keypair) {
+        toast.error("🔑 Не удалось создать keypair из приватного ключа!");
+        return;
+      }
+      
+      toast.success("🔍 Мониторинг новых токенов запущен!");
+      
+      // Здесь логика мониторинга токенов
+      monitorNewTokens(connection, keypair, {
+        minVolume: 5000,
+        minHolders: 2,
+        maxAge: 0.017, // 1 минута в часах
+        minPumpScore: 70,
+        slippage: 5.0,
+        snipeAmount: 0.1,
+        usePumpFun: true
+      });
+    } catch (error) {
+      console.error("Ошибка запуска мониторинга:", error);
+      toast.error(`❌ Ошибка запуска мониторинга: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      setIsMonitoring(false);
     }
   };
+
+  // Функция для остановки мониторинга
+  const handleStopMonitoring = () => {
+    setIsMonitoring(false);
+    // Здесь логика остановки мониторинга
+    
+    toast.info("🛑 Мониторинг новых токенов остановлен");
+  };
+
+  // Функция для загрузки сохраненных данных при монтировании компонента
+  useEffect(() => {
+    const savedPrivateKey = localStorage.getItem('privateKey');
+    const savedNetwork = localStorage.getItem('network');
+    
+    if (savedPrivateKey) {
+      setPrivateKey(savedPrivateKey);
+    }
+    
+    if (savedNetwork) {
+      setNetwork(savedNetwork);
+    }
+    
+    // Если есть сохраненные данные, пытаемся подключиться автоматически
+    if (savedPrivateKey && savedNetwork) {
+      // Для автоматического подключения раскомментируйте строку ниже
+      // handleConnect();
+    }
+  }, []);
 
   return (
-    <div className="w-64 h-screen fixed top-0 left-0 bg-card border-r p-4 overflow-y-auto">
-      <div className="flex flex-col h-full">
-        <div className="flex items-center mb-6">
-          <div className="bg-gradient-to-r from-solana to-solana-secondary w-8 h-8 rounded-full mr-2"></div>
-          <h2 className="text-lg font-bold text-primary">Solana Bot</h2>
-        </div>
-
-        <Separator className="mb-4" />
-
-        <div className="space-y-4 flex-1">
-          <div className="space-y-2">
-            <Label htmlFor="network">Сеть Solana</Label>
-            <Select value={network} onValueChange={handleNetworkChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите сеть" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="devnet">Devnet</SelectItem>
-                <SelectItem value="mainnet">Mainnet</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2 mt-4">
-            <Label htmlFor="privateKey">Приватный ключ</Label>
-            <Input
-              id="privateKey"
-              type="password"
-              placeholder="Введите приватный ключ"
-              value={privateKey}
-              onChange={handlePrivateKeyChange}
-              className="font-mono text-xs"
-            />
-            <p className="text-xs text-muted-foreground">
-              Введите ваш приватный ключ в формате base58 или массива байтов
-            </p>
-          </div>
-
-          <div className="mt-4 p-3 bg-muted rounded-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Статус:</span>
-              <span className="flex items-center text-sm">
-                <span 
-                  className={`w-2 h-2 rounded-full mr-2 ${
-                    connectionStatus === 'connected' ? 'bg-green-500' : 
-                    connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                ></span>
-                {connectionStatus === 'connected' ? 'Подключено' : 
-                 connectionStatus === 'connecting' ? 'Подключение...' : 'Отключено'}
-              </span>
+    <div className="w-full md:w-64 md:fixed md:h-full p-4 bg-gray-100 dark:bg-gray-900 border-r">
+      <div className="space-y-4">
+        <div className="text-xl font-bold">🚀 Solana Sniper Bot</div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>🔌 Подключение</CardTitle>
+            <CardDescription>Подключение к сети Solana</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="private-key">Приватный ключ</Label>
+              <Input 
+                id="private-key"
+                type="password" 
+                placeholder="Введите приватный ключ" 
+                value={privateKey}
+                onChange={(e) => setPrivateKey(e.target.value)}
+                disabled={isConnected || isLoading}
+              />
             </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Баланс:</span>
-              <span className="text-sm font-medium">
-                {balance !== null ? `${balance.toFixed(4)} SOL` : '-'}
-              </span>
+            
+            <div>
+              <Label htmlFor="network">Сеть</Label>
+              <Select 
+                value={network} 
+                onValueChange={setNetwork}
+                disabled={isConnected || isLoading}
+              >
+                <SelectTrigger id="network">
+                  <SelectValue placeholder="Выберите сеть" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mainnet">Mainnet</SelectItem>
+                  <SelectItem value="devnet">Devnet</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            <Button 
-              className="w-full mt-2" 
-              size="sm"
-              variant="outline"
-              onClick={refreshBalance}
-              disabled={!privateKey || connectionStatus === 'connecting'}
-            >
-              Обновить баланс
-            </Button>
-          </div>
-        </div>
-
-        <div className="pt-4 mt-auto">
-          <p className="text-xs text-center text-muted-foreground">
-            Solana Bot v1.0.0
-          </p>
-        </div>
+            
+            {!isConnected ? (
+              <Button 
+                onClick={handleConnect} 
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? 'Подключение...' : 'Подключиться'}
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleDisconnect} 
+                variant="outline"
+                className="w-full"
+              >
+                Отключиться
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+        
+        {isConnected && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>💰 Баланс</CardTitle>
+                <CardDescription>Информация о вашем кошельке</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-sm">
+                  <span className="font-medium">Адрес: </span>
+                  <span className="text-gray-500 break-all">
+                    {walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'Не подключено'}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium">Баланс: </span>
+                    <span className="text-green-500 font-bold">
+                      {balance !== null ? `${balance.toFixed(6)} SOL` : 'Загрузка...'}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleRefreshBalance}
+                    disabled={isLoading}
+                  >
+                    🔄
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>🔍 Мониторинг</CardTitle>
+                <CardDescription>Поиск новых токенов</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!isMonitoring ? (
+                  <Button 
+                    onClick={handleStartMonitoring} 
+                    className="w-full"
+                    disabled={!isConnected || isLoading}
+                  >
+                    Запустить мониторинг
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleStopMonitoring} 
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    Остановить мониторинг
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
