@@ -11,15 +11,20 @@ run = ["sh", "-c", "npm run dev"]
 localPort = 8080
 externalPort = 80
 
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
 [workflows]
-runButton = "Run"
+runButton = "Run Dev Server"
 
 [[workflows.workflow]]
 name = "Run"
+author = 40936906
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Run Dev Server"
 author = 40936906
 mode = "sequential"
 

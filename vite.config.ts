@@ -15,7 +15,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   server: {
-    host: "::",
+    host: "0.0.0.0",  // Используем 0.0.0.0 вместо :: для широкой совместимости
     port: 8080,
   },
   plugins: [
