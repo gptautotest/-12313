@@ -35,59 +35,37 @@ export const useBotStore = create<BotState>((set) => ({
   setSnipeAmount: (amount) => set({ snipeAmount: amount }),
   setMaxGas: (gas) => set({ maxGas: gas }),
   setSwapTime: (time) => set({ swapTime: time }),
-  addLog: (log) => set((state) => ({ 
+  addLog: (log) => set((state) => ({
     logs: [log, ...state.logs].slice(0, 50),
     balance: state.balance // Сохраняем текущий баланс при добавлении лога
   }))
 }));
 
-// Получение соединения с блокчейном Solana
-const getConnection = () => {
-  return new Connection(DEVNET_RPC, 'confirmed');
-};
 
-// Создание экземпляра Keypair из приватного ключа
-const getKeypair = () => {
-  try {
-    const { privateKey } = useBotStore.getState();
-    if (!privateKey) {
-      console.log('Приватный ключ не установлен');
-      return null;
-    }
+//This file needs to be created or adjusted to match your existing structure.
+// src/services/solanaConnectionService.ts
+// import { Connection, Keypair } from '@solana/web3.js';
+// import { DEVNET_RPC } from '@/lib/constants';
 
-    // Пытаемся разбить приватный ключ на байты
-    const privateKeyBytes = parsePrivateKey(privateKey);
+// export const getConnection = () => {
+//   return new Connection(DEVNET_RPC, 'confirmed');
+// };
 
-    if (!privateKeyBytes) {
-      console.error('Не удалось преобразовать приватный ключ в байты');
-      // Попробуем использовать стандартный ключ для тестирования
-      console.log('Попытка использовать резервный ключ');
-      return Keypair.generate();
-    }
+// export const getKeypairFromPrivateKey = (privateKey: string): Keypair | null => {
+//   try {
+//     const privateKeyBytes = parsePrivateKey(privateKey);
+//     if (!privateKeyBytes) return null;
+//     return Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
+//   } catch (error) {
+//     console.error('Error creating Keypair from private key:', error);
+//     return null;
+//   }
+// };
 
-    try {
-      // Создаем keypair из приватного ключа
-      return Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
-    } catch (e) {
-      console.error('Ошибка создания keypair из приватного ключа:', e);
-      // Еще одна попытка с другим форматом
-      if (privateKey.includes('[') && privateKey.includes(']')) {
-        const cleanKey = privateKey.replace(/[\[\]\s]/g, '');
-        const numbers = cleanKey.split(',').map(num => parseInt(num.trim(), 10));
-        return Keypair.fromSecretKey(Uint8Array.from(numbers));
-      }
 
-      // Если всё не помогло, используем сгенерированный ключ
-      console.log('Используем сгенерированный ключ для демо-режима');
-      return Keypair.generate();
-    }
-  } catch (error) {
-    console.error('Ошибка обработки приватного ключа:', error);
-    return Keypair.generate(); // Для демо-режима
-  }
-};
+//  This function is likely redundant now.
 
-// Парсинг приватного ключа в различных форматах
+// Парсинг приватного ключа в различных форматах (This function might need adjustments to be compatible with getKeypairFromPrivateKey)
 const parsePrivateKey = (key: string): number[] | null => {
   // Удаляем все пробелы и переносы строк
   const cleanKey = key.replace(/\s+/g, '');
@@ -126,21 +104,35 @@ const parsePrivateKey = (key: string): number[] | null => {
 };
 
 // Обновление баланса кошелька
-export const updateBalance = async () => {
-  const keypair = getKeypair();
-  if (!keypair) {
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
+export const updateBalance = async (privateKey?: string): Promise<number> => {
+  console.log("Обновление баланса...");
+
+  if (!privateKey) {
+    console.log("Приватный ключ не установлен");
     useBotStore.setState({ balance: 0, publicKey: '' });
-    return;
+    return 0;
   }
 
+  console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
+
   try {
+    const keypair = getKeypairFromPrivateKey(privateKey);
+    if (!keypair) {
+      console.error('Ошибка: невозможно создать keypair из приватного ключа');
+      return 0;
+    }
+
     const connection = getConnection();
     const lamports = await connection.getBalance(keypair.publicKey);
     const publicKey = keypair.publicKey.toString();
 
-    useBotStore.setState({ 
+    console.log("Wallet public key:", publicKey);
+    console.log("Raw balance:", lamports);
+
+    useBotStore.setState({
       balance: lamports / LAMPORTS_PER_SOL,
-      publicKey 
+      publicKey
     });
 
     console.log("Баланс успешно обновлен:", lamports / LAMPORTS_PER_SOL, "SOL");
@@ -153,9 +145,10 @@ export const updateBalance = async () => {
 };
 
 // Форматирование баланса для отображения
-export const formatBalanceDisplay = (balance: number): string => {
-  return balance.toFixed(4) + ' SOL';
+export const formatBalance = (balance: number): string => {
+  return balance.toFixed(4);
 };
+
 
 // Форматирование баланса для отображения в рублях
 export const formatRubDisplay = (balance: number): string => {
@@ -172,8 +165,8 @@ export const startCopyBot = async () => {
 
   useBotStore.setState({ isRunning: true });
 
-  const keypair = getKeypair();
-  if (!keypair) {
+  const { privateKey } = useBotStore.getState();
+  if (!privateKey) {
     useBotStore.setState({ isRunning: false });
     useBotStore.getState().addLog('❌ Ошибка: Не установлен приватный ключ');
     return;
@@ -205,19 +198,19 @@ export const startCopyBot = async () => {
       // Создаем транзакцию на отправку средств самому себе (имитация снайпинга)
       transaction.add(
         SystemProgram.transfer({
-          fromPubkey: keypair.publicKey,
-          toPubkey: keypair.publicKey,
+          fromPubkey: getKeypairFromPrivateKey(privateKey)?.publicKey,
+          toPubkey: getKeypairFromPrivateKey(privateKey)?.publicKey,
           lamports: 1000 // минимальная сумма, чтобы не тратить реальные средства
         })
       );
 
       // Отправляем транзакцию
       try {
-        const signature = await connection.sendTransaction(transaction, [keypair]);
+        const signature = await connection.sendTransaction(transaction, [getKeypairFromPrivateKey(privateKey)!]);
         useBotStore.getState().addLog(`✅ Транзакция выполнена: ${signature.substring(0, 10)}...`);
 
         // Обновляем баланс после транзакции
-        await updateBalance();
+        await updateBalance(privateKey);
       } catch (error) {
         console.error("Ошибка при отправке транзакции:", error);
         useBotStore.getState().addLog(`❌ Ошибка транзакции: ${error.message}`);
