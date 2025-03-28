@@ -21,4 +21,4 @@ export default defineConfig({
     react(),
     componentTagger(),
   ].filter(Boolean),
-}));
+});
