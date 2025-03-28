@@ -284,8 +284,9 @@ import { toast } from '@/components/ui/use-toast';
 
 /**
  * Обновляет баланс кошелька.
+ * Эта функция является основной и заменяет updateBalance_original
  */
-export const updateBalance = async (privateKey: string): Promise<number | null> => {
+export const updateBalanceV2 = async (privateKey: string): Promise<number | null> => {
   console.log("Обновление баланса...");
   console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
   

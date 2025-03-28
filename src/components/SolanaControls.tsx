@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { updateBalance } from '../services/solanaBotService';
+import { updateBalanceV2 } from '../services/solanaBotService'; // Assuming updateBalanceV2 exists
 import { Separator } from './ui/separator';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -25,7 +25,7 @@ const SolanaControls: React.FC = () => {
     if (privateKey) {
       console.log("Запрос обновления баланса с приватным ключом...");
       try {
-        const newBalance = await updateBalance(privateKey);
+        const newBalance = await updateBalanceV2(privateKey);
         console.log("Полученный баланс:", newBalance);
         // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
         setBalance(newBalance !== null ? newBalance : 0);
