@@ -1,119 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Clipboard, Wallet, ArrowUpDown, Activity, Copy, RefreshCw } from 'lucide-react';
-import ConnectionStatus from './ConnectionStatus';
-import { useBotStore } from '@/stores/botStore';
-import { formatPublicKey, isValidPrivateKey, getPublicKeyFromPrivate } from '@/services/solanaConnectionService';
-import { updateBalance, formatCurrency, convertSolToUsd, convertSolToRub, initializeWebSocket } from '@/services/solanaBotService';
+import { useState, useEffect } from 'react';
+import { updateBalance } from '../services/solanaBotService';
+import { Separator } from './ui/separator';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { toast } from './ui/use-toast';
 
 const SolanaControls: React.FC = () => {
-  const { 
-    privateKey, setPrivateKey, 
-    isRunning, setIsRunning,
-    balance, setBalance,
-    network, setNetwork
-  } = useBotStore();
-
+  const [privateKey, setPrivateKey] = useState('');
+  const [balance, setBalance] = useState<number | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-  const [targetAddress, setTargetAddress] = useState<string>('');
-  const [privateKeyInput, setPrivateKeyInput] = useState<string>(privateKey || '');
-  const [publicKey, setPublicKey] = useState<string>('');
-  const [isValidPrivKey, setIsValidPrivKey] = useState<boolean>(false);
+  const [network, setNetwork] = useState<'devnet' | 'mainnet'>('devnet');
 
-  // Инициализация при загрузке
   useEffect(() => {
+    console.log("Обновление баланса...");
     if (privateKey) {
-      const pubKey = getPublicKeyFromPrivate(privateKey);
-      setPublicKey(pubKey ? pubKey.toString() : '');
-      setIsValidPrivKey(true);
       refreshBalance();
-      setConnectionStatus('connected');
     }
-
-    // Запускаем интервал обновления баланса
-    const interval = setInterval(() => {
-      if (privateKey) {
-        refreshBalance();
-      }
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [privateKey]);
+  }, [privateKey, network]);
 
   // Обновление баланса
   const refreshBalance = async () => {
     if (privateKey) {
       console.log("Запрос обновления баланса с приватным ключом...");
-      const newBalance = await updateBalance(privateKey);
-      console.log("Полученный баланс:", newBalance);
-      // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
-      setBalance(newBalance !== null ? newBalance : 0);
+      try {
+        const newBalance = await updateBalance(privateKey);
+        console.log("Полученный баланс:", newBalance);
+        // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
+        setBalance(newBalance !== null ? newBalance : 0);
+        setConnectionStatus('connected');
+      } catch (error) {
+        console.error("Ошибка при обновлении баланса:", error);
+        setConnectionStatus('disconnected');
+        toast({
+          title: "Ошибка",
+          description: "Не удалось обновить баланс",
+          variant: "destructive"
+        });
+      }
     } else {
       console.log("Не могу обновить баланс: приватный ключ не установлен");
     }
   };
 
-  // Обновление приватного ключа
+  // Обработчик изменения приватного ключа
   const handlePrivateKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const key = e.target.value;
-    setPrivateKeyInput(key);
-
-    // Используем обновленную функцию проверки, поддерживающую оба формата
-    const isValid = isValidPrivateKey(key);
-    setIsValidPrivKey(isValid);
-
-    if (isValid) {
-      console.log("Приватный ключ валидный, получаем публичный ключ");
-      try {
-        const pubKey = getPublicKeyFromPrivate(key);
-        if (pubKey) {
-          console.log("Публичный ключ успешно получен:", pubKey.toString());
-          setPublicKey(pubKey.toString());
-        } else {
-          console.error("Публичный ключ не получен");
-          setPublicKey('');
-        }
-      } catch (error) {
-        console.error("Ошибка при получении публичного ключа:", error);
-        setPublicKey('');
-      }
-    } else {
-      console.log("Приватный ключ невалидный");
-      setPublicKey('');
-    }
+    const value = e.target.value;
+    setPrivateKey(value);
+    setConnectionStatus('connecting');
   };
 
-  // Сохранение приватного ключа
-  const handleSavePrivateKey = () => {
-    if (isValidPrivKey) {
-      setPrivateKey(privateKeyInput);
-      setConnectionStatus('connecting');
-      setTimeout(() => refreshBalance(), 1000);
-    }
-  };
-
-  // Включение/выключение бота
-  const toggleBot = () => {
-    if (privateKey) {
-      if (!isRunning) {
-        // Инициализация WebSocket
-        if (targetAddress) {
-          initializeWebSocket(targetAddress, (txSignature) => {
-            console.log("Новая транзакция:", txSignature);
-          });
-        }
-      }
-      setIsRunning(!isRunning);
-    }
-  };
-
-  // Смена сети
+  // Обработчик изменения сети
   const handleNetworkChange = (value: string) => {
     setNetwork(value as 'devnet' | 'mainnet');
     if (privateKey) {
@@ -125,175 +63,80 @@ const SolanaControls: React.FC = () => {
   return (
     <div className="w-64 h-screen fixed top-0 left-0 bg-card border-r p-4 overflow-y-auto">
       <div className="flex flex-col h-full">
-        <div className="mb-4 text-center">
-          <h1 className="text-xl font-bold">Solana Bot</h1>
-          <ConnectionStatus status={connectionStatus} />
+        <div className="flex items-center mb-6">
+          <div className="bg-gradient-to-r from-solana to-solana-secondary w-8 h-8 rounded-full mr-2"></div>
+          <h2 className="text-lg font-bold text-primary">Solana Bot</h2>
         </div>
 
-        <Tabs defaultValue="wallet" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="wallet"><Wallet className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="bot"><Activity className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="settings"><RefreshCw className="h-4 w-4" /></TabsTrigger>
-          </TabsList>
+        <Separator className="mb-4" />
 
-          <TabsContent value="wallet" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Кошелёк</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="privateKey">Приватный ключ</Label>
-                    <div className="relative">
-                      <Input 
-                        id="privateKey" 
-                        type="password" 
-                        value={privateKeyInput} 
-                        onChange={handlePrivateKeyChange}
-                        className={isValidPrivKey ? "pr-8 border-green-500/50" : "pr-8"}
-                      />
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="absolute right-0 top-0 h-full" 
-                        onClick={handleSavePrivateKey}
-                        disabled={!isValidPrivKey}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+        <div className="space-y-4 flex-1">
+          <div className="space-y-2">
+            <Label htmlFor="network">Сеть Solana</Label>
+            <Select value={network} onValueChange={handleNetworkChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите сеть" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="devnet">Devnet</SelectItem>
+                <SelectItem value="mainnet">Mainnet</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                  <div className="space-y-1">
-                    <Label>Публичный ключ</Label>
-                    <div className="text-xs bg-background p-2 rounded border overflow-hidden text-ellipsis">
-                      {publicKey ? formatPublicKey(publicKey) : 'Не установлен'}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="privateKey">Приватный ключ</Label>
+            <Input
+              id="privateKey"
+              type="password"
+              placeholder="Введите приватный ключ"
+              value={privateKey}
+              onChange={handlePrivateKeyChange}
+              className="font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              Введите ваш приватный ключ в формате base58 или массива байтов
+            </p>
+          </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Баланс</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">SOL:</span>
-                    <span className="font-medium">{formatCurrency(balance, 'SOL')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">USD:</span>
-                    <span className="font-medium">{formatCurrency(balance ? convertSolToUsd(balance) : null, 'USD')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">RUB:</span>
-                    <span className="font-medium">{formatCurrency(balance ? convertSolToRub(balance) : null, 'RUB')}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="outline" size="sm" className="w-full" onClick={refreshBalance}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Обновить
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
+          <div className="mt-4 p-3 bg-muted rounded-md">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm">Статус:</span>
+              <span className="flex items-center text-sm">
+                <span 
+                  className={`w-2 h-2 rounded-full mr-2 ${
+                    connectionStatus === 'connected' ? 'bg-green-500' : 
+                    connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                ></span>
+                {connectionStatus === 'connected' ? 'Подключено' : 
+                 connectionStatus === 'connecting' ? 'Подключение...' : 'Отключено'}
+              </span>
+            </div>
 
-          <TabsContent value="bot" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Настройки бота</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="targetAddress">Целевой адрес</Label>
-                    <Input 
-                      id="targetAddress" 
-                      placeholder="Публичный ключ..." 
-                      value={targetAddress} 
-                      onChange={(e) => setTargetAddress(e.target.value)}
-                    />
-                  </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Баланс:</span>
+              <span className="text-sm font-medium">
+                {balance !== null ? `${balance.toFixed(4)} SOL` : '-'}
+              </span>
+            </div>
 
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="botSwitch">Запустить бота</Label>
-                    <Switch 
-                      id="botSwitch" 
-                      checked={isRunning} 
-                      onCheckedChange={toggleBot}
-                      disabled={!privateKey}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Button 
+              className="w-full mt-2" 
+              size="sm"
+              variant="outline"
+              onClick={refreshBalance}
+              disabled={!privateKey || connectionStatus === 'connecting'}
+            >
+              Обновить баланс
+            </Button>
+          </div>
+        </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Статус</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Состояние:</span>
-                    <span className={`font-medium ${isRunning ? 'text-green-500' : 'text-red-500'}`}>
-                      {isRunning ? 'Работает' : 'Остановлен'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Сеть:</span>
-                    <span className="font-medium">
-                      {network === 'devnet' ? 'Devnet' : 'Mainnet'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Настройки сети</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant={network === 'devnet' ? 'default' : 'outline'}
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleNetworkChange('devnet')}
-                    >
-                      Devnet
-                    </Button>
-                    <Button
-                      variant={network === 'mainnet' ? 'default' : 'outline'}
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleNetworkChange('mainnet')}
-                    >
-                      Mainnet
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        <Separator className="my-4" />
-
-        <div className="mt-auto text-center text-xs text-muted-foreground">
-          <p>Solana Bot v1.0.0</p>
-          <p>© 2023 All rights reserved</p>
+        <div className="pt-4 mt-auto">
+          <p className="text-xs text-center text-muted-foreground">
+            Solana Bot v1.0.0
+          </p>
         </div>
       </div>
     </div>
