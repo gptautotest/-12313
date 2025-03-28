@@ -17,44 +17,80 @@ export const updateBalance = async (privateKey: string | null): Promise<number |
     console.log("Приватный ключ не установлен");
     return null;
   }
-  
-  // Дополнительная отладочная информация для приватного ключа
-  if (privateKey.startsWith('[') && privateKey.endsWith(']')) {
-    console.log("Обнаружен приватный ключ в формате массива байтов, длина:", 
-               JSON.parse(privateKey).length);
-  }
 
-  try {
-    const connection = getConnection('devnet');
-    console.log("Получение keypair из приватного ключа");
-    const keypair = getKeypairFromPrivateKey(privateKey);
-    
-    if (!keypair) {
-      console.error("Не удалось получить keypair из приватного ключа");
-      return null;
-    }
-    
-    const publicKey = keypair.publicKey;
-    console.log("Wallet public key:", publicKey.toString());
-    
-    // Явно обрабатываем запрос баланса с обработкой ошибок
+  // Максимальное количество попыток
+  const MAX_RETRIES = 3;
+  let retryCount = 0;
+  
+  while (retryCount < MAX_RETRIES) {
     try {
-      console.log("Запрос баланса для:", publicKey.toString());
-      const balance = await connection.getBalance(publicKey);
-      console.log("Raw balance in lamports:", balance);
+      // Подключение к выбранной сети (devnet для тестирования)
+      const connection = getConnection('devnet');
+      console.log(`Попытка ${retryCount + 1} получения ключа и баланса`);
       
-      // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
-      const solBalance = balance / 1000000000;
-      console.log("Balance in SOL:", solBalance);
-      return solBalance;
-    } catch (balanceError) {
-      console.error("Ошибка при запросе баланса:", balanceError);
-      return 0; // Возвращаем 0 вместо null при ошибке запроса баланса
+      // Получаем ключевую пару из приватного ключа
+      const keypair = getKeypairFromPrivateKey(privateKey);
+      
+      if (!keypair) {
+        console.error("Не удалось получить keypair из приватного ключа");
+        retryCount++;
+        continue;
+      }
+      
+      // Получаем публичный ключ
+      const publicKey = keypair.publicKey;
+      console.log("Wallet public key:", publicKey.toString());
+      
+      try {
+        // Запрашиваем баланс с большим таймаутом
+        console.log("Запрос баланса для:", publicKey.toString());
+        const balance = await Promise.race([
+          connection.getBalance(publicKey),
+          new Promise<number>((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout")), 10000)
+          )
+        ]) as number;
+        
+        console.log("Raw balance in lamports:", balance);
+        
+        // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
+        const solBalance = balance / 1000000000;
+        console.log("Balance in SOL:", solBalance);
+        return solBalance;
+      } catch (balanceError) {
+        console.error(`Ошибка при запросе баланса (попытка ${retryCount + 1}):`, balanceError);
+        retryCount++;
+        
+        // Если это последняя попытка, пробуем другой метод
+        if (retryCount === MAX_RETRIES - 1) {
+          try {
+            console.log("Пробуем альтернативный метод получения баланса");
+            const accountInfo = await connection.getAccountInfo(publicKey);
+            if (accountInfo) {
+              const lamports = accountInfo.lamports;
+              const solBalance = lamports / 1000000000;
+              console.log("Balance from accountInfo in SOL:", solBalance);
+              return solBalance;
+            }
+          } catch (altError) {
+            console.error("Ошибка при использовании альтернативного метода:", altError);
+          }
+        }
+        
+        // Небольшая задержка перед повторной попыткой
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      console.error(`Ошибка при получении баланса (попытка ${retryCount + 1}):`, error);
+      retryCount++;
+      
+      // Небольшая задержка перед повторной попыткой
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  } catch (error) {
-    console.error("Ошибка при получении баланса:", error);
-    return 0; // Возвращаем 0 вместо null при общей ошибке
   }
+  
+  console.error("Все попытки получения баланса исчерпаны");
+  return 0; // Возвращаем 0, когда все попытки исчерпаны
 };
 
 /**
