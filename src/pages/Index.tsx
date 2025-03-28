@@ -7,6 +7,7 @@ import websocketService from '@/services/websocketService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
+import { TokenSniper } from '@/components/TokenSniper'; // Added import for TokenSniper component
 
 const Index = () => {
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -19,7 +20,7 @@ const Index = () => {
     const unsubscribeStatus = websocketService.onStatusChange((status) => {
       setConnectionStatus(status);
     });
-    
+
     const unsubscribeTokens = websocketService.onNewToken((token) => {
       setTokens((prevTokens) => {
         const exists = prevTokens.some(t => t.mint === token.mint);
@@ -35,7 +36,7 @@ const Index = () => {
         return newTokens;
       });
     });
-    
+
     return () => {
       unsubscribeStatus();
       unsubscribeTokens();
@@ -74,7 +75,7 @@ const Index = () => {
     try {
       console.log("Fetching token data for:", trimmedAddress);
       const token = await websocketService.fetchTokenByMint(trimmedAddress);
-      
+
       if (token) {
         setTokens((prevTokens) => {
           const exists = prevTokens.some(t => t.mint === token.mint);
@@ -85,9 +86,9 @@ const Index = () => {
           }
           return [token, ...prevTokens];
         });
-        
+
         setSelectedToken(token);
-        
+
         toast({
           title: "Успех",
           description: `Информация о токене ${token.name || token.symbol || token.mint.substring(0, 8)} получена`,
@@ -123,10 +124,10 @@ const Index = () => {
               Мониторинг новых токенов в реальном времени на Solana
             </p>
           </div>
-          
+
           <ConnectionStatus status={connectionStatus} />
         </header>
-        
+
         <div className="mb-6 flex gap-2 items-center">
           <Input
             placeholder="Введите адрес токена Solana (mint)"
@@ -149,11 +150,12 @@ const Index = () => {
             )}
           </Button>
         </div>
-        
+
         <main>
           <TokenGrid tokens={tokens} onTokenSelect={handleTokenSelect} />
+          <TokenSniper /> {/* Added TokenSniper component */}
         </main>
-        
+
         {selectedToken && (
           <ChartModal token={selectedToken} onClose={handleCloseChart} />
         )}

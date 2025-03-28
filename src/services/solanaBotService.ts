@@ -278,3 +278,106 @@ export const sendSol = async (
     return null;
   }
 };
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { toast } from '@/components/ui/use-toast';
+
+/**
+ * Обновляет баланс кошелька.
+ */
+export const updateBalance = async (privateKey: string): Promise<number | null> => {
+  console.log("Обновление баланса...");
+  console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
+  
+  if (!privateKey) {
+    console.error("Не указан приватный ключ");
+    return null;
+  }
+
+  try {
+    const connection = getConnection('devnet');
+    console.log("Получение keypair из приватного ключа");
+    const keypair = getKeypairFromPrivateKey(privateKey);
+    
+    if (!keypair) {
+      console.error("Не удалось получить keypair из приватного ключа");
+      return null;
+    }
+    
+    const publicKey = keypair.publicKey;
+    console.log("Wallet public key:", publicKey.toString());
+    
+    // Явно обрабатываем запрос баланса с обработкой ошибок
+    try {
+      console.log("Запрос баланса для:", publicKey.toString());
+      const balance = await connection.getBalance(publicKey);
+      console.log("Raw balance in lamports:", balance);
+      
+      // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
+      const solBalance = balance / LAMPORTS_PER_SOL;
+      console.log("Balance in SOL:", solBalance);
+      return solBalance;
+    } catch (balanceError) {
+      console.error("Ошибка при запросе баланса:", balanceError);
+      return 0; // Возвращаем 0 вместо null при ошибке запроса баланса
+    }
+  } catch (error) {
+    console.error("Ошибка при получении баланса:", error);
+    return 0; // Возвращаем 0 вместо null при общей ошибке
+  }
+};
+
+/**
+ * Снайпит токен по его адресу.
+ */
+export const snipeToken = async (tokenAddress: string, amount: number, slippage: number): Promise<boolean> => {
+  console.log(`Снайпинг токена ${tokenAddress} на сумму ${amount} SOL с проскальзыванием ${slippage}%`);
+  
+  try {
+    // Здесь будет реализация снайпинга через Raydium или Jupiter
+    // Пока возвращаем заглушку с имитацией успеха
+    
+    toast({
+      title: "Информация",
+      description: "Функция снайпинга в разработке. Скоро будет доступна!",
+    });
+    
+    // Задержка для имитации процесса снайпинга
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    return true;
+  } catch (error) {
+    console.error("Ошибка при снайпинге токена:", error);
+    return false;
+  }
+};
+
+/**
+ * Мониторит новые токены на Pump.fun и Raydium.
+ */
+export const monitorNewTokens = async (
+  minVolume: number, 
+  minHolders: number,
+  maxAgeMinutes: number,
+  minPumpScore: number,
+  usePumpFun: boolean,
+  useRaydium: boolean,
+  callback: (tokenAddress: string) => void
+) => {
+  console.log("Запуск мониторинга новых токенов");
+  console.log("Параметры:", { minVolume, minHolders, maxAgeMinutes, minPumpScore, usePumpFun, useRaydium });
+  
+  // Здесь будет реализация мониторинга через Pump.fun API и Raydium API
+  // Пока возвращаем заглушку
+  
+  toast({
+    title: "Информация",
+    description: "Функция мониторинга в разработке. Скоро будет доступна!",
+  });
+  
+  return {
+    stop: () => {
+      console.log("Остановка мониторинга новых токенов");
+    }
+  };
+};
