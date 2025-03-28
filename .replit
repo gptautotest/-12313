@@ -8,7 +8,7 @@ channel = "stable-24_05"
 run = ["sh", "-c", "npm run dev"]
 
 [[ports]]
-localPort = 8080
+localPort = 8082
 externalPort = 80
 
 [[ports]]
@@ -34,4 +34,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "npm run dev -- --host=0.0.0.0 --port=8082"

@@ -1,6 +1,7 @@
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
 import { create } from 'zustand';
 import { DEVNET_RPC, DEFAULT_KEY } from '@/lib/constants';
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
 
 // Интерфейс для состояния бота
 interface BotState {
@@ -36,36 +37,11 @@ export const useBotStore = create<BotState>((set) => ({
   setMaxGas: (gas) => set({ maxGas: gas }),
   setSwapTime: (time) => set({ swapTime: time }),
   addLog: (log) => set((state) => ({
-    logs: [log, ...state.logs].slice(0, 50),
-    balance: state.balance // Сохраняем текущий баланс при добавлении лога
+    logs: [log, ...state.logs].slice(0, 50)
   }))
 }));
 
-
-//This file needs to be created or adjusted to match your existing structure.
-// src/services/solanaConnectionService.ts
-// import { Connection, Keypair } from '@solana/web3.js';
-// import { DEVNET_RPC } from '@/lib/constants';
-
-// export const getConnection = () => {
-//   return new Connection(DEVNET_RPC, 'confirmed');
-// };
-
-// export const getKeypairFromPrivateKey = (privateKey: string): Keypair | null => {
-//   try {
-//     const privateKeyBytes = parsePrivateKey(privateKey);
-//     if (!privateKeyBytes) return null;
-//     return Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
-//   } catch (error) {
-//     console.error('Error creating Keypair from private key:', error);
-//     return null;
-//   }
-// };
-
-
-//  This function is likely redundant now.
-
-// Парсинг приватного ключа в различных форматах (This function might need adjustments to be compatible with getKeypairFromPrivateKey)
+// Парсинг приватного ключа в различных форматах
 const parsePrivateKey = (key: string): number[] | null => {
   // Удаляем все пробелы и переносы строк
   const cleanKey = key.replace(/\s+/g, '');
@@ -104,38 +80,41 @@ const parsePrivateKey = (key: string): number[] | null => {
 };
 
 // Обновление баланса кошелька
-import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
-export const updateBalance = async (privateKey?: string): Promise<number> => {
+export const updateBalance = async (): Promise<number> => {
   console.log("Обновление баланса...");
 
-  if (!privateKey) {
-    console.log("Приватный ключ не установлен");
-    useBotStore.setState({ balance: 0, publicKey: '' });
-    return 0;
-  }
-
-  console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
-
   try {
-    const keypair = getKeypairFromPrivateKey(privateKey);
-    if (!keypair) {
-      console.error('Ошибка: невозможно создать keypair из приватного ключа');
+    const { privateKey } = useBotStore.getState();
+
+    console.log("Updating balance with private key:", privateKey ? "Present" : "Not present");
+
+    if (!privateKey) {
+      console.log("Приватный ключ не установлен");
+      useBotStore.setState({ balance: 0, publicKey: '' });
       return 0;
     }
 
+    const keypair = getKeypairFromPrivateKey(privateKey);
+
+    if (!keypair) {
+      console.error("Не удалось получить keypair из приватного ключа");
+      useBotStore.setState({ balance: 0 });
+      return 0;
+    }
+
+    console.log("Wallet public key:", keypair.publicKey.toString());
+
     const connection = getConnection();
     const lamports = await connection.getBalance(keypair.publicKey);
-    const publicKey = keypair.publicKey.toString();
-
-    console.log("Wallet public key:", publicKey);
     console.log("Raw balance:", lamports);
 
-    useBotStore.setState({
+    const publicKey = keypair.publicKey.toString();
+
+    useBotStore.setState({ 
       balance: lamports / LAMPORTS_PER_SOL,
-      publicKey
+      publicKey 
     });
 
-    console.log("Баланс успешно обновлен:", lamports / LAMPORTS_PER_SOL, "SOL");
     return lamports / LAMPORTS_PER_SOL;
   } catch (error) {
     console.error('Ошибка при обновлении баланса:', error);
@@ -145,151 +124,115 @@ export const updateBalance = async (privateKey?: string): Promise<number> => {
 };
 
 // Форматирование баланса для отображения
-export const formatBalance = (balance: number): string => {
-  return balance.toFixed(4);
+export const formatBalanceDisplay = (balance: number): string => {
+  return `${balance.toFixed(4)} SOL`;
 };
 
-
-// Форматирование баланса для отображения в рублях
+// Форматирование баланса в рублях
 export const formatRubDisplay = (balance: number): string => {
-  const rate = 7000; // Примерный курс SOL к рублю
-  return (balance * rate).toFixed(0) + ' ₽';
+  const solPriceInRub = 7200; // Примерный курс SOL в рублях
+  const rubValue = balance * solPriceInRub;
+  return `≈ ${rubValue.toFixed(0)} ₽`;
 };
 
-// Запуск бота для копирования транзакций
-let runningInterval;
-export const startCopyBot = async () => {
-  if (useBotStore.getState().isRunning) {
-    return;
-  }
+// Старт бота
+export const startCopyBot = async (): Promise<void> => {
+  try {
+    const { privateKey, snipeAmount, maxGas, swapTime } = useBotStore.getState();
 
-  useBotStore.setState({ isRunning: true });
-
-  const { privateKey } = useBotStore.getState();
-  if (!privateKey) {
-    useBotStore.setState({ isRunning: false });
-    useBotStore.getState().addLog('❌ Ошибка: Не установлен приватный ключ');
-    return;
-  }
-
-  useBotStore.getState().addLog('🚀 Бот запущен. Начинаем слушать транзакции...');
-
-  // Запускаем автоматический снайпинг
-  runningInterval = setInterval(async () => {
-    try {
-      // Получаем текущие параметры
-      const { snipeAmount, maxGas, network } = useBotStore.getState();
-
-      // Генерируем случайный токен для имитации снайпинга
-      const randomTokenAddress = Keypair.generate().publicKey.toString();
-      const connection = getConnection();
-
-      // Имитация случайной суммы снайпинга в пределах установленного лимита
-      const actualAmount = (Math.random() * 0.8 + 0.2) * snipeAmount;
-      const gasUsed = (Math.random() * 0.8) * maxGas;
-
-      // Записываем информацию в логи
-      useBotStore.getState().addLog(`🔍 Найден новый токен: ${randomTokenAddress.substring(0, 10)}...`);
-      useBotStore.getState().addLog(`💰 Снайпинг токена на сумму ${actualAmount.toFixed(4)} SOL`);
-
-      // Имитация транзакции
-      const transaction = new Transaction();
-
-      // Создаем транзакцию на отправку средств самому себе (имитация снайпинга)
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey: getKeypairFromPrivateKey(privateKey)?.publicKey,
-          toPubkey: getKeypairFromPrivateKey(privateKey)?.publicKey,
-          lamports: 1000 // минимальная сумма, чтобы не тратить реальные средства
-        })
-      );
-
-      // Отправляем транзакцию
-      try {
-        const signature = await connection.sendTransaction(transaction, [getKeypairFromPrivateKey(privateKey)!]);
-        useBotStore.getState().addLog(`✅ Транзакция выполнена: ${signature.substring(0, 10)}...`);
-
-        // Обновляем баланс после транзакции
-        await updateBalance(privateKey);
-      } catch (error) {
-        console.error("Ошибка при отправке транзакции:", error);
-        useBotStore.getState().addLog(`❌ Ошибка транзакции: ${error.message}`);
-      }
-    } catch (error) {
-      console.error("Ошибка в снайпинге:", error);
-      useBotStore.getState().addLog(`❌ Ошибка: ${error.message}`);
+    if (!privateKey) {
+      useBotStore.getState().addLog("❌ Ошибка: Приватный ключ не установлен");
+      return;
     }
-  }, 10000); // Снайпинг каждые 10 секунд
+
+    // Обновляем баланс перед запуском
+    await updateBalance();
+
+    useBotStore.setState({ isRunning: true });
+    useBotStore.getState().addLog("🚀 Бот запущен. Начинаем слушать транзакции...");
+
+    // Имитация работы бота (для примера)
+    startMockBotActivity();
+
+  } catch (error) {
+    console.error("Ошибка при запуске бота:", error);
+    useBotStore.getState().addLog(`❌ Ошибка при запуске бота: ${error}`);
+    useBotStore.setState({ isRunning: false });
+  }
 };
 
 // Остановка бота
-export const stopCopyBot = () => {
-  clearInterval(runningInterval);
+export const stopCopyBot = (): void => {
   useBotStore.setState({ isRunning: false });
-  useBotStore.getState().addLog('Бот остановлен');
-  console.log('WebSocket closed');
+  useBotStore.getState().addLog("🛑 Бот остановлен");
+
+  // Остановка имитации работы бота
+  stopMockBotActivity();
 };
 
-// Эмуляция нахождения новых токенов
-const simulateTokenDiscovery = () => {
-  const checkForNewTokens = () => {
-    if (!useBotStore.getState().isRunning) return;
+// Пременные для имитации работы бота
+let mockInterval: number | null = null;
+let mockTransactionInterval: number | null = null;
 
-    // С вероятностью 30% эмулируем нахождение нового токена
-    if (Math.random() < 0.3) {
-      const tokenAddress = generateRandomTokenAddress();
-      const tokenSymbol = generateRandomTokenSymbol();
-      const logMessage = `Найден новый токен: ${tokenSymbol} (${tokenAddress.substring(0, 8)}...)`;
-      useBotStore.getState().addLog(logMessage);
+// Имитация активности бота для демонстрации
+const startMockBotActivity = () => {
+  if (mockInterval) clearInterval(mockInterval);
+  if (mockTransactionInterval) clearInterval(mockTransactionInterval);
 
-      // Эмулируем снайпинг токена
-      setTimeout(() => {
-        snipeToken(tokenAddress, tokenSymbol);
-      }, 500);
-    }
+  // Генерация случайных токенов
+  mockInterval = window.setInterval(() => {
+    const { isRunning, snipeAmount } = useBotStore.getState();
 
-    // Продолжаем поиск, если бот активен
-    if (useBotStore.getState().isRunning) {
-      setTimeout(checkForNewTokens, 3000); // Проверка каждые 3 секунды
-    }
-  };
+    if (!isRunning) return;
 
-  checkForNewTokens();
+    // Случайная сумма SOL в пределах заданного значения
+    const amount = (Math.random() * snipeAmount).toFixed(4);
+
+    // Генерация случайного адреса токена
+    const randomTokenAddress = Array.from({ length: 10 }, () => 
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
+        Math.floor(Math.random() * 62)
+      ]
+    ).join('');
+
+    useBotStore.getState().addLog(`💰 Снайпинг токена на сумму ${amount} SOL`);
+    useBotStore.getState().addLog(`🔍 Найден новый токен: ${randomTokenAddress}...`);
+
+  }, 5000);
+
+  // Генерация транзакций
+  mockTransactionInterval = window.setInterval(() => {
+    const { isRunning } = useBotStore.getState();
+
+    if (!isRunning) return;
+
+    // Случайный хэш транзакции
+    const randomTxHash = Array.from({ length: 10 }, () => 
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
+        Math.floor(Math.random() * 62)
+      ]
+    ).join('');
+
+    // Немного уменьшаем баланс при каждой транзакции
+    const { balance } = useBotStore.getState();
+    useBotStore.setState({ 
+      balance: Math.max(0, balance - 0.000005) 
+    });
+
+    useBotStore.getState().addLog(`✅ Транзакция выполнена: ${randomTxHash}...`);
+
+  }, 8000);
 };
 
-// Генерация случайного адреса токена для эмуляции
-const generateRandomTokenAddress = () => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 44; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
+// Остановка имитации работы бота
+const stopMockBotActivity = () => {
+  if (mockInterval) {
+    clearInterval(mockInterval);
+    mockInterval = null;
   }
-  return result;
-};
 
-// Генерация случайного символа токена
-const generateRandomTokenSymbol = () => {
-  const symbols = ['SOL', 'BONK', 'PYTH', 'JUP', 'RAY', 'MANGO', 'SAMO', 'DUST', 'RENDER', 'APT', 'USDC'];
-  return symbols[Math.floor(Math.random() * symbols.length)] + Math.floor(Math.random() * 100);
-};
-
-// Функция для снайпинга токена
-const snipeToken = async (tokenAddress: string, tokenSymbol: string) => {
-  if (!useBotStore.getState().isRunning) return;
-
-  const { snipeAmount } = useBotStore.getState();
-  const logMessage = `🎯 Снайпинг токена ${tokenSymbol}: ${snipeAmount.toFixed(2)} SOL`;
-  useBotStore.getState().addLog(logMessage);
-
-  // Эмуляция процесса покупки
-  setTimeout(() => {
-    // С вероятностью 80% транзакция успешна
-    if (Math.random() < 0.8) {
-      const successMessage = `✅ Успешно куплено ${tokenSymbol} за ${snipeAmount.toFixed(2)} SOL`;
-      useBotStore.getState().addLog(successMessage);
-    } else {
-      const errorMessage = `❌ Ошибка при покупке ${tokenSymbol}: нехватка ликвидности`;
-      useBotStore.getState().addLog(errorMessage);
-    }
-  }, 1500);
+  if (mockTransactionInterval) {
+    clearInterval(mockTransactionInterval);
+    mockTransactionInterval = null;
+  }
 };
