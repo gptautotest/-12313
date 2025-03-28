@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +19,13 @@ const SolanaControls: React.FC = () => {
     balance, setBalance,
     network, setNetwork
   } = useBotStore();
-  
+
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [targetAddress, setTargetAddress] = useState<string>('');
   const [privateKeyInput, setPrivateKeyInput] = useState<string>(privateKey || '');
   const [publicKey, setPublicKey] = useState<string>('');
   const [isValidPrivKey, setIsValidPrivKey] = useState<boolean>(false);
-  
+
   // Инициализация при загрузке
   useEffect(() => {
     if (privateKey) {
@@ -36,14 +35,14 @@ const SolanaControls: React.FC = () => {
       refreshBalance();
       setConnectionStatus('connected');
     }
-    
+
     // Запускаем интервал обновления баланса
     const interval = setInterval(() => {
       if (privateKey) {
         refreshBalance();
       }
     }, 10000);
-    
+
     return () => clearInterval(interval);
   }, [privateKey]);
 
@@ -65,12 +64,27 @@ const SolanaControls: React.FC = () => {
 
   // Обновление приватного ключа
   const handlePrivateKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPrivateKeyInput(value);
-    setIsValidPrivKey(isValidPrivateKey(value));
-    
-    if (isValidPrivateKey(value)) {
-      const pubKey = getPublicKeyFromPrivate(value);
+    const key = e.target.value;
+    setPrivateKeyInput(key);
+
+    // Проверяем, является ли ключ массивом чисел в строковом представлении
+    let isValid = isValidPrivateKey(key);
+
+    // Дополнительно проверяем формат массива байтов
+    if (!isValid && key.startsWith('[') && key.endsWith(']')) {
+      try {
+        const bytesArray = JSON.parse(key);
+        isValid = Array.isArray(bytesArray) && bytesArray.length === 64;
+        console.log("Обнаружен приватный ключ в формате массива байтов");
+      } catch (err) {
+        console.error("Ошибка при парсинге массива приватного ключа:", err);
+      }
+    }
+
+    setIsValidPrivKey(isValid);
+
+    if (isValid) {
+      const pubKey = getPublicKeyFromPrivate(key);
       setPublicKey(pubKey ? pubKey.toString() : '');
     } else {
       setPublicKey('');
@@ -117,14 +131,14 @@ const SolanaControls: React.FC = () => {
           <h1 className="text-xl font-bold">Solana Bot</h1>
           <ConnectionStatus status={connectionStatus} />
         </div>
-        
+
         <Tabs defaultValue="wallet" className="w-full">
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="wallet"><Wallet className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="bot"><Activity className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="settings"><RefreshCw className="h-4 w-4" /></TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="wallet" className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
@@ -153,7 +167,7 @@ const SolanaControls: React.FC = () => {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label>Публичный ключ</Label>
                     <div className="text-xs bg-background p-2 rounded border overflow-hidden text-ellipsis">
@@ -163,7 +177,7 @@ const SolanaControls: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Баланс</CardTitle>
@@ -192,7 +206,7 @@ const SolanaControls: React.FC = () => {
               </CardFooter>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="bot" className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
@@ -209,7 +223,7 @@ const SolanaControls: React.FC = () => {
                       onChange={(e) => setTargetAddress(e.target.value)}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <Label htmlFor="botSwitch">Запустить бота</Label>
                     <Switch 
@@ -222,7 +236,7 @@ const SolanaControls: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Статус</CardTitle>
@@ -245,7 +259,7 @@ const SolanaControls: React.FC = () => {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="settings" className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
@@ -276,9 +290,9 @@ const SolanaControls: React.FC = () => {
             </Card>
           </TabsContent>
         </Tabs>
-        
+
         <Separator className="my-4" />
-        
+
         <div className="mt-auto text-center text-xs text-muted-foreground">
           <p>Solana Bot v1.0.0</p>
           <p>© 2023 All rights reserved</p>

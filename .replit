@@ -42,7 +42,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev -- --host=0.0.0.0 --port=8080"
+args = "export NODE_OPTIONS=\"--max-old-space-size=2048\" && npm run dev -- --host=0.0.0.0 --port=8080"
 
 [[workflows.workflow]]
 name = "Run Production"

@@ -17,6 +17,12 @@ export const updateBalance = async (privateKey: string | null): Promise<number |
     console.log("Приватный ключ не установлен");
     return null;
   }
+  
+  // Дополнительная отладочная информация для приватного ключа
+  if (privateKey.startsWith('[') && privateKey.endsWith(']')) {
+    console.log("Обнаружен приватный ключ в формате массива байтов, длина:", 
+               JSON.parse(privateKey).length);
+  }
 
   try {
     const connection = getConnection('devnet');
