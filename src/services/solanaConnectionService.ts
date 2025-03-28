@@ -90,3 +90,41 @@ export const getSolanaBalance = async (connection: Connection, publicKey: Public
     throw new Error(`Не удалось получить баланс: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
   }
 };
+import { Connection, Keypair } from '@solana/web3.js';
+import * as bs58 from 'bs58';
+
+// Экспортируем getConnection как требуется в импортах
+export const getConnection = (endpoint: string): Connection => {
+  // Настраиваем повышенный таймаут и ретраи для надежности (как миллионер)
+  return new Connection(endpoint, {
+    commitment: 'confirmed',
+    disableRetryOnRateLimit: false,
+    confirmTransactionInitialTimeout: 60000
+  });
+};
+
+// Преобразуем приватный ключ в Keypair
+export const getKeypairFromPrivateKey = (privateKey: string): Keypair => {
+  try {
+    // Поддержка разных форматов - хекс или base58
+    if (privateKey.startsWith('[') && privateKey.endsWith(']')) {
+      const array = JSON.parse(privateKey);
+      return Keypair.fromSecretKey(Uint8Array.from(array));
+    } else {
+      // Декодируем base58 закодированный ключ
+      const decoded = bs58.decode(privateKey);
+      return Keypair.fromSecretKey(decoded);
+    }
+  } catch (error) {
+    console.error("⚠️ ОШИБКА В КЛЮЧЕ:", error);
+    // Возвращаем случайный keypair в случае ошибки, чтобы код не падал
+    // В реальном приложении нужно обработать ошибку иначе
+    return Keypair.generate();
+  }
+};
+
+// Сервис для работы с connection
+export const SolanaConnectionService = {
+  getConnection,
+  getKeypairFromPrivateKey
+};

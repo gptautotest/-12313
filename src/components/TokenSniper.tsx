@@ -247,3 +247,68 @@ export function TokenSniper() {
     </Card>
   );
 }
+import React from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
+
+export default function TokenSniper() {
+  return (
+    <Card className="w-full max-w-4xl mx-auto bg-gradient-to-br from-solana-secondary/10 to-solana/5 border-solana/20">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-2xl font-bold">🎯 Sniper Bot 3000</CardTitle>
+            <CardDescription>Отлавливай новые токены быстрее всех</CardDescription>
+          </div>
+          <Badge variant="success" className="bg-green-500">АКТИВЕН</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Минимальная ликвидность</label>
+            <div className="flex items-center gap-2">
+              <Slider defaultValue={[50]} max={100} step={1} className="flex-1" />
+              <span className="text-xs opacity-70">50 SOL</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Макс. % топ-холдеров</label>
+            <div className="flex items-center gap-2">
+              <Slider defaultValue={[20]} max={100} step={1} className="flex-1" />
+              <span className="text-xs opacity-70">20%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Бюджет на снайп (SOL)</label>
+            <Input type="number" placeholder="0.1" defaultValue="0.1" />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Таймаут (сек)</label>
+            <Input type="number" placeholder="60" defaultValue="60" />
+          </div>
+        </div>
+
+        <div className="p-3 bg-black/20 rounded-lg">
+          <h3 className="text-sm font-semibold mb-2">DEX Мониторинг</h3>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="border-solana bg-black/20">Raydium ✓</Badge>
+            <Badge variant="outline" className="border-solana bg-black/20">Pump.fun ✓</Badge>
+            <Badge variant="outline" className="border-solana/50 bg-black/10 opacity-50">Orca</Badge>
+            <Badge variant="outline" className="border-solana/50 bg-black/10 opacity-50">Jupiter</Badge>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col sm:flex-row gap-2 justify-between">
+        <Button className="w-full sm:w-auto bg-solana hover:bg-solana-secondary">🚀 ЗАПУСТИТЬ СНАЙПЕР</Button>
+        <Button variant="outline" className="w-full sm:w-auto border-solana/30 text-solana hover:bg-solana/10">⚙️ РАСШИРЕННЫЕ НАСТРОЙКИ</Button>
+      </CardFooter>
+    </Card>
+  );
+}

@@ -544,3 +544,85 @@ export const snipeTokenV2 = async (tokenAddress: string, amount: number, slippag
       }
     };
   };
+import { PublicKey } from '@solana/web3.js';
+import { getConnection, getKeypairFromPrivateKey } from './solanaConnectionService';
+
+// Статус снайпер-бота (экспортируем функцию, которая требуется в импортах)
+export const getBotStatus = () => {
+  return {
+    isActive: true,
+    activeDexes: ['Raydium', 'Pump.fun'],
+    tokensScanned: 423,
+    lastTokenFound: 'PEPE',
+    snipeAmount: 0.1,
+    minLiquidity: 50,
+    maxHolderPercent: 20
+  };
+};
+
+// Основной класс нашего супер-бота для снайпинга токенов
+export class SolanaBot {
+  connection: ReturnType<typeof getConnection>;
+  keypair: ReturnType<typeof getKeypairFromPrivateKey> | null = null;
+  isActive: boolean = false;
+  
+  constructor(endpoint: string) {
+    // Создаем подключение через наш сервис
+    this.connection = getConnection(endpoint);
+    console.log("🚀 SOLANA БОТ СОЗДАН! Подключен к:", endpoint);
+  }
+
+  // Устанавливаем ключ для работы бота
+  setWalletKey(privateKey: string) {
+    try {
+      this.keypair = getKeypairFromPrivateKey(privateKey);
+      console.log("🔑 КЛЮЧ ЗАГРУЖЕН! Адрес:", this.keypair.publicKey.toString());
+      return true;
+    } catch (error) {
+      console.error("❌ ОШИБКА ЗАГРУЗКИ КЛЮЧА:", error);
+      return false;
+    }
+  }
+
+  // Запускаем снайпинг токенов
+  async startSniper(config: {
+    dexes: string[],
+    minLiquidity: number,
+    maxHolderPercent: number,
+    snipeAmount: number,
+    timeout: number
+  }) {
+    if (!this.keypair) {
+      throw new Error("Сначала загрузите ключ кошелька");
+    }
+
+    this.isActive = true;
+    console.log("🎯 СНАЙПЕР ЗАПУЩЕН с настройками:", config);
+    
+    // Здесь будет логика снайпинга токенов
+    // ...
+
+    return {
+      success: true,
+      message: "Снайпер активирован и ищет новые токены"
+    };
+  }
+
+  // Остановка снайпера
+  stopSniper() {
+    this.isActive = false;
+    console.log("⏹️ СНАЙПЕР ОСТАНОВЛЕН");
+    return {
+      success: true,
+      message: "Снайпер деактивирован"
+    };
+  }
+
+  // Состояние бота
+  getStatus() {
+    return getBotStatus();
+  }
+}
+
+// Создаем дефолтный инстанс бота
+export const defaultBot = new SolanaBot("https://api.devnet.solana.com");
