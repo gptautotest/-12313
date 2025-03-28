@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { useBotStore } from '@/stores/botStore';
 import { 
   startCopyBot,
   stopCopyBot, 
-  useBotStore, 
   updateBalance, 
   formatBalanceDisplay, 
   formatRubDisplay 
