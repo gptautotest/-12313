@@ -48,17 +48,14 @@ const SolanaControls: React.FC = () => {
 
   // Обновление баланса
   const refreshBalance = async () => {
-    try {
+    if (privateKey) {
+      console.log("Запрос обновления баланса с приватным ключом...");
       const newBalance = await updateBalance(privateKey);
-      if (newBalance !== null) {
-        setBalance(newBalance);
-        if (connectionStatus !== 'connected') {
-          setConnectionStatus('connected');
-        }
-      }
-    } catch (error) {
-      console.error("Ошибка при обновлении баланса:", error);
-      setConnectionStatus('disconnected');
+      console.log("Полученный баланс:", newBalance);
+      // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
+      setBalance(newBalance !== null ? newBalance : 0);
+    } else {
+      console.log("Не могу обновить баланс: приватный ключ не установлен");
     }
   };
 

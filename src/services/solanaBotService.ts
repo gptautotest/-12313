@@ -26,23 +26,34 @@ export const updateBalance = async (privateKey: string | null): Promise<number |
 
   try {
     const connection = getConnection('devnet');
-    const publicKey = getPublicKeyFromPrivate(privateKey);
+    console.log("Получение keypair из приватного ключа");
+    const keypair = getKeypairFromPrivateKey(privateKey);
     
-    if (!publicKey) {
-      console.error("Не удалось получить публичный ключ");
+    if (!keypair) {
+      console.error("Не удалось получить keypair из приватного ключа");
       return null;
     }
-
+    
+    const publicKey = keypair.publicKey;
     console.log("Wallet public key:", publicKey.toString());
     
-    const balance = await connection.getBalance(publicKey);
-    console.log("Raw balance:", balance);
-    
-    // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
-    return balance / 1000000000;
+    // Явно обрабатываем запрос баланса с обработкой ошибок
+    try {
+      console.log("Запрос баланса для:", publicKey.toString());
+      const balance = await connection.getBalance(publicKey);
+      console.log("Raw balance in lamports:", balance);
+      
+      // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
+      const solBalance = balance / 1000000000;
+      console.log("Balance in SOL:", solBalance);
+      return solBalance;
+    } catch (balanceError) {
+      console.error("Ошибка при запросе баланса:", balanceError);
+      return 0; // Возвращаем 0 вместо null при ошибке запроса баланса
+    }
   } catch (error) {
     console.error("Ошибка при получении баланса:", error);
-    return null;
+    return 0; // Возвращаем 0 вместо null при общей ошибке
   }
 };
 
