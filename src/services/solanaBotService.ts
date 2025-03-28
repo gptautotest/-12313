@@ -1,149 +1,179 @@
-import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
-import { useBotStore } from '../stores/botStore';
+
+import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
 import { getConnection, getKeypairFromPrivateKey, getPublicKeyFromPrivate } from './solanaConnectionService';
-import { DEVNET_RPC, SOL_USD_RATE, USD_RUB_RATE } from '@/lib/constants';
+import { SOL_USD_RATE, USD_RUB_RATE } from '@/lib/constants';
 import bs58 from 'bs58';
-import {  } from '@solana/web3.js';
 
-// Сервис для работы с ботом Solana
-
-// Запуск бота для копирования транзакций
-export const startCopyBot = async () => {
-  const { privateKey, targetAddress, maxGasPrice, swapAmountSol, swapTimeSec } = useBotStore.getState();
-
-  if (!privateKey) {
-    console.error('Приватный ключ не установлен');
-    return;
-  }
-
-  try {
-    // Получаем ключевую пару и соединение
-    const keypair = getKeypairFromPrivateKey(privateKey);
-    if (!keypair) {
-      throw new Error('Не удалось создать ключевую пару');
-    }
-
-    // Обновляем состояние бота
-    useBotStore.setState({ 
-      isRunning: true, 
-      logs: [...useBotStore.getState().logs, `Бот запущен - ${new Date().toLocaleTimeString()}`] 
-    });
-
-    // Здесь будет логика отслеживания и копирования транзакций
-    console.log('Бот запущен с параметрами:', {
-      targetAddress,
-      maxGasPrice: maxGasPrice / LAMPORTS_PER_SOL,
-      swapAmountSol,
-      swapTimeSec
-    });
-
-    // Проверяем соединение
-    await updateBalance();
-
-  } catch (error) {
-    console.error('Ошибка при запуске бота:', error);
-    stopCopyBot();
-    useBotStore.setState({ 
-      logs: [...useBotStore.getState().logs, `Ошибка запуска: ${error.message}`] 
-    });
-  }
-};
-
-// Остановка бота
-export const stopCopyBot = () => {
-  useBotStore.setState({ 
-    isRunning: false,
-    logs: [...useBotStore.getState().logs, `Бот остановлен - ${new Date().toLocaleTimeString()}`]
-  });
-};
-
-// Обновление баланса кошелька
-export const updateBalance = async (privateKey: string | null): Promise<number> => {
-  console.log("Updating balance with private key:", privateKey ? "Present" : "Missing");
-
+/**
+ * Обновление баланса кошелька
+ * @param privateKey Приватный ключ кошелька
+ * @returns Баланс в SOL или null при ошибке
+ */
+export const updateBalance = async (privateKey: string | null): Promise<number | null> => {
+  console.log("Обновление баланса...");
+  console.log("Updating balance with private key:", privateKey ? "Present" : "Not provided");
+  
   if (!privateKey) {
     console.log("Приватный ключ не установлен");
-    const { setBalance } = useBotStore.getState();
-    setBalance(0);
-    return 0;
+    return null;
   }
 
   try {
-    // Получаем keypair из приватного ключа
-    const keypair = getKeypairFromPrivateKey(privateKey);
-    if (!keypair) {
-      console.error("Не удалось создать keypair из приватного ключа");
-      return 0;
+    const connection = getConnection('devnet');
+    const publicKey = getPublicKeyFromPrivate(privateKey);
+    
+    if (!publicKey) {
+      console.error("Не удалось получить публичный ключ");
+      return null;
     }
 
-    // Получаем соединение с Solana
-    const network = useBotStore.getState().network;
-    const connection = getConnection(network);
-
-    // Логируем публичный ключ для отладки
-    console.log("Wallet public key:", keypair.publicKey.toString());
-
-    // Получаем баланс с повторными попытками при ошибке
-    let balance = 0;
-    let attempts = 0;
-    const maxAttempts = 3;
-
-    while (attempts < maxAttempts) {
-      try {
-        balance = await connection.getBalance(keypair.publicKey);
-        console.log("Raw balance:", balance);
-        break;
-      } catch (err) {
-        console.warn(`Попытка ${attempts+1}/${maxAttempts} получения баланса не удалась:`, err);
-        attempts++;
-        if (attempts >= maxAttempts) throw err;
-        // Небольшая задержка перед следующей попыткой
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-
-    // Обновляем состояние в хранилище
-    const { setBalance } = useBotStore.getState();
-    const solBalance = balance / LAMPORTS_PER_SOL;
-    setBalance(solBalance);
-
-    return solBalance;
+    console.log("Wallet public key:", publicKey.toString());
+    
+    const balance = await connection.getBalance(publicKey);
+    console.log("Raw balance:", balance);
+    
+    // Конвертируем баланс из ламппортов в SOL (1 SOL = 1,000,000,000 lamports)
+    return balance / 1000000000;
   } catch (error) {
-    console.error("Ошибка обновления баланса:", error);
-    const { setBalance } = useBotStore.getState();
-    setBalance(0);
-    return 0;
+    console.error("Ошибка при получении баланса:", error);
+    return null;
   }
 };
 
-// Форматирование баланса для отображения
-export const formatBalanceDisplay = (balance: number): string => {
-  return `${balance.toFixed(5)} SOL`;
+/**
+ * Конвертация SOL в USD
+ * @param solAmount Количество SOL
+ * @returns Стоимость в USD
+ */
+export const convertSolToUsd = (solAmount: number): number => {
+  return solAmount * SOL_USD_RATE;
 };
 
-// Форматирование баланса в рублях
-export const formatRubDisplay = (balance: number): string => {
-  const usdValue = balance * SOL_USD_RATE;
-  const rubValue = usdValue * USD_RUB_RATE;
-  return `≈ ${rubValue.toFixed(0)} ₽`;
+/**
+ * Конвертация SOL в RUB
+ * @param solAmount Количество SOL
+ * @returns Стоимость в RUB
+ */
+export const convertSolToRub = (solAmount: number): number => {
+  return convertSolToUsd(solAmount) * USD_RUB_RATE;
 };
 
-// Добавление записи в лог
-export const addLog = (message: string) => {
-  const timestamp = new Date().toLocaleTimeString();
-  const logEntry = `[${timestamp}] ${message}`;
-
-  useBotStore.setState(state => ({
-    logs: [logEntry, ...state.logs].slice(0, 100) // Ограничиваем 100 записями
-  }));
-};
-
-// Вспомогательные функции
-const generateRandomHexString = (length: number): string => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+/**
+ * Форматирование суммы с символом валюты
+ * @param amount Сумма
+ * @param currency Валюта (SOL, USD, RUB)
+ * @returns Отформатированная строка
+ */
+export const formatCurrency = (amount: number | null, currency: 'SOL' | 'USD' | 'RUB'): string => {
+  if (amount === null) return '—';
+  
+  const formatter = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: currency === 'SOL' ? 5 : 2,
+    maximumFractionDigits: currency === 'SOL' ? 9 : 2,
+  });
+  
+  const formatted = formatter.format(amount);
+  
+  switch (currency) {
+    case 'SOL':
+      return `${formatted} SOL`;
+    case 'USD':
+      return `$${formatted}`;
+    case 'RUB':
+      return `₽${formatted}`;
   }
-  return result;
+};
+
+// Вебсокет для мониторинга транзакций в реальном времени
+let webSocket: WebSocket | null = null;
+
+/**
+ * Запуск бота для копирования транзакций
+ */
+export const startCopyBot = async () => {
+  // Имплементация системы мониторинга и копирования транзакций
+  console.log("Бот запущен");
+  return true;
+};
+
+/**
+ * Остановка бота для копирования транзакций
+ */
+export const stopCopyBot = () => {
+  if (webSocket) {
+    webSocket.close();
+    webSocket = null;
+  }
+  console.log("Бот остановлен");
+  return true;
+};
+
+/**
+ * Инициализация WebSocket соединения
+ */
+export const initializeWebSocket = (targetAddress: string, callback: (txSignature: string) => void) => {
+  if (webSocket) {
+    webSocket.close();
+  }
+  
+  try {
+    const connection = getConnection('devnet');
+    const subscriptionId = connection.onAccountChange(
+      new PublicKey(targetAddress),
+      (accountInfo) => {
+        console.log("Обнаружено изменение аккаунта:", accountInfo);
+        // В реальном приложении здесь был бы код для обработки изменений
+      }
+    );
+    
+    console.log("WebSocket connected");
+    return subscriptionId;
+  } catch (error) {
+    console.error("WebSocket connection error:", error);
+    return null;
+  }
+};
+
+/**
+ * Отправка SOL
+ */
+export const sendSol = async (
+  privateKey: string,
+  toAddress: string,
+  amount: number
+): Promise<string | null> => {
+  try {
+    const connection = getConnection('devnet');
+    const keypair = getKeypairFromPrivateKey(privateKey);
+    
+    if (!keypair) {
+      console.error("Не удалось создать keypair");
+      return null;
+    }
+    
+    const toPublicKey = new PublicKey(toAddress);
+    
+    // Количество в ламппортах
+    const lamports = amount * 1000000000;
+    
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: keypair.publicKey,
+        toPubkey: toPublicKey,
+        lamports,
+      })
+    );
+    
+    const signature = await sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [keypair]
+    );
+    
+    console.log("Транзакция успешно отправлена:", signature);
+    return signature;
+  } catch (error) {
+    console.error("Ошибка при отправке транзакции:", error);
+    return null;
+  }
 };

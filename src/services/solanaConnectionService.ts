@@ -9,8 +9,8 @@ import { DEVNET_RPC, MAINNET_RPC } from '@/lib/constants';
  * @returns Объект соединения
  */
 export const getConnection = (network: 'devnet' | 'mainnet' = 'devnet'): Connection => {
-  console.log(`Подключение к сети ${network}...`);
   const endpoint = network === 'devnet' ? DEVNET_RPC : MAINNET_RPC;
+  console.log(`Connecting to Solana ${network} network at ${endpoint}`);
   return new Connection(endpoint, 'confirmed');
 };
 
@@ -52,8 +52,6 @@ export const getPublicKeyFromAddress = (address: string | null): PublicKey | nul
 
 /**
  * Получение публичного ключа из приватного
- * @param privateKey Приватный ключ
- * @returns Публичный ключ или null
  */
 export const getPublicKeyFromPrivate = (privateKey: string | null): PublicKey | null => {
   const keypair = getKeypairFromPrivateKey(privateKey);
@@ -62,8 +60,6 @@ export const getPublicKeyFromPrivate = (privateKey: string | null): PublicKey | 
 
 /**
  * Форматирование публичного ключа для отображения
- * @param publicKey Публичный ключ
- * @returns Отформатированная строка
  */
 export const formatPublicKey = (publicKey: PublicKey | null | string): string => {
   if (!publicKey) return 'Не установлен';
@@ -80,8 +76,6 @@ export const formatPublicKey = (publicKey: PublicKey | null | string): string =>
 
 /**
  * Проверка валидности приватного ключа
- * @param key Приватный ключ для проверки
- * @returns true если ключ валидный, иначе false
  */
 export const isValidPrivateKey = (key: string): boolean => {
   try {
