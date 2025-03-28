@@ -6,30 +6,56 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SingleFile from "./pages/SingleFile";
 import NotFound from "./pages/NotFound";
 import SolanaControls from './components/SolanaControls';
+import ErrorBoundary from './components/ErrorBoundary';
+import { Suspense } from 'react';
 
-const queryClient = new QueryClient();
+// Создаем клиент запросов с обработкой ошибок
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+      onError: (error) => {
+        console.error("🚨 ОШИБКА ЗАПРОСА:", error);
+      }
+    },
+  },
+});
+
+// Компонент для загрузки
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="bg-solana p-8 rounded-xl shadow-xl">
+      <p className="text-white font-bold text-xl">ЗАГРУЖАЕМ РАКЕТУ НА ЛУНУ... 🚀</p>
+    </div>
+  </div>
+);
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BrowserRouter>
-          <div className="flex">
-            <SolanaControls />
-            <div className="ml-64 p-4 flex-1">
-              <Routes>
-                <Route path="/" element={<SingleFile />} />
-                <Route path="/index" element={<SingleFile />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <BrowserRouter>
+            <div className="flex">
+              <SolanaControls />
+              <div className="ml-64 p-4 flex-1">
+                <Suspense fallback={<LoadingFallback />}>
+                  <Routes>
+                    <Route path="/" element={<SingleFile />} />
+                    <Route path="/index" element={<SingleFile />} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </div>
             </div>
-          </div>
-        </BrowserRouter>
-        <Toaster />
-        <Sonner />
-      </TooltipProvider>
-    </QueryClientProvider>
+          </BrowserRouter>
+          <Toaster />
+          <Sonner />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

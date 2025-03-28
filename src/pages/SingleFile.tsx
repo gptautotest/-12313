@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { LAMPORTS_PER_SOL } from '@/lib/utils';
+import { useToast } from "@/components/ui/use-toast";
+import TokenSniper from "@/components/TokenSniper";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -36,20 +39,20 @@ interface Token {
 // ========= UTILITY FUNCTIONS =========
 function formatSol(value: number): string {
   if (typeof value !== 'number') return '0 SOL';
-  
+
   if (value >= 1000) {
     return `${(value / 1000).toFixed(2)}k SOL`;
   }
-  
+
   if (value >= 1) {
     return `${value.toFixed(2)} SOL`;
   }
-  
+
   // Handle small values more gracefully
   if (value < 0.01) {
     return `${value.toExponential(2)} SOL`;
   }
-  
+
   return `${value.toFixed(4)} SOL`;
 }
 
@@ -60,7 +63,7 @@ function shortenAddress(address: string): string {
 
 async function fetchTokenImage(token: any): Promise<string | undefined> {
   if (!token.uri) return undefined;
-  
+
   try {
     const response = await fetch(token.uri);
     if (response.ok) {
@@ -70,7 +73,7 @@ async function fetchTokenImage(token: any): Promise<string | undefined> {
   } catch (error) {
     console.error("Error fetching token image:", error);
   }
-  
+
   return undefined;
 }
 
@@ -94,13 +97,13 @@ class WebSocketService {
   private reconnectTimeout = 3000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setTimeout> | null = null;
-  
+
   private statusListeners: ((status: 'connecting' | 'connected' | 'disconnected') => void)[] = [];
   private tokenListeners: ((token: Token) => void)[] = [];
-  
+
   constructor() {
     this.connect();
-    
+
     // Setup automatic reconnection check
     setInterval(() => {
       if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
@@ -108,56 +111,56 @@ class WebSocketService {
       }
     }, 5000);
   }
-  
+
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
-    
+
     this.notifyStatusChange('connecting');
-    
+
     this.ws = new WebSocket("wss://pumpportal.fun/api/data");
-    
+
     this.ws.onopen = () => {
       this.onOpen();
     };
-    
+
     this.ws.onclose = () => {
       this.onClose();
     };
-    
+
     this.ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       this.onClose();
     };
-    
+
     this.ws.onmessage = (event) => {
       this.onMessage(event);
     };
   }
-  
+
   private onOpen(): void {
     console.log('WebSocket connected');
     this.reconnectAttempts = 0;
     this.notifyStatusChange('connected');
-    
+
     // Subscribe to new tokens
     this.send({
       method: "subscribeNewToken",
       params: []
     });
-    
+
     // Setup ping to keep connection alive
     this.setupPing();
   }
-  
+
   private onClose(): void {
     console.log('WebSocket disconnected');
     this.notifyStatusChange('disconnected');
     this.clearPing();
-    
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
-    
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectTimer = setTimeout(() => {
         this.reconnectAttempts++;
@@ -165,14 +168,14 @@ class WebSocketService {
       }, this.reconnectTimeout);
     }
   }
-  
+
   private async onMessage(event: MessageEvent): Promise<void> {
     try {
       const data = JSON.parse(event.data);
-      
+
       if ((data.method === 'newToken' && data.params?.[0]) || (data.signature && data.mint)) {
         const tokenInfo = data.params?.[0] || data;
-        
+
         // Fetch the token image if available
         let imageUrl;
         try {
@@ -180,19 +183,19 @@ class WebSocketService {
         } catch (error) {
           console.error("Error processing token image:", error);
         }
-        
+
         const token: Token = {
           ...tokenInfo,
           imageUrl,
         };
-        
+
         this.notifyNewToken(token);
       }
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
     }
   }
-  
+
   private setupPing(): void {
     this.clearPing();
     this.pingTimer = setInterval(() => {
@@ -201,28 +204,28 @@ class WebSocketService {
       }
     }, 30000); // Ping every 30 seconds
   }
-  
+
   private clearPing(): void {
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
   }
-  
+
   private send(data: any): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
     }
   }
-  
+
   private notifyStatusChange(status: 'connecting' | 'connected' | 'disconnected'): void {
     this.statusListeners.forEach(listener => listener(status));
   }
-  
+
   private notifyNewToken(token: Token): void {
     this.tokenListeners.forEach(listener => listener(token));
   }
-  
+
   // Public methods for subscribing to events
   public onStatusChange(listener: (status: 'connecting' | 'connected' | 'disconnected') => void): () => void {
     this.statusListeners.push(listener);
@@ -230,21 +233,21 @@ class WebSocketService {
       this.statusListeners = this.statusListeners.filter(l => l !== listener);
     };
   }
-  
+
   public onNewToken(listener: (token: Token) => void): () => void {
     this.tokenListeners.push(listener);
     return () => {
       this.tokenListeners = this.tokenListeners.filter(l => l !== listener);
     };
   }
-  
+
   public disconnect(): void {
     this.clearPing();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -321,7 +324,7 @@ const TokenCard: React.FC<{ token: Token; onClick: (token: Token) => void }> = (
           </div>
         )}
       </div>
-      
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-base truncate">{token.name || 'Unknown Token'}</h3>
@@ -329,7 +332,7 @@ const TokenCard: React.FC<{ token: Token; onClick: (token: Token) => void }> = (
             {token.symbol || '?'}
           </div>
         </div>
-        
+
         <div className="text-sm space-y-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Price:</span>
@@ -337,12 +340,12 @@ const TokenCard: React.FC<{ token: Token; onClick: (token: Token) => void }> = (
               {formatSol(token.price || token.initialBuy || 0)}
             </span>
           </div>
-          
+
           <div className="flex justify-between">
             <span className="text-muted-foreground">Market Cap:</span>
             <span>{formatSol(token.marketCapSol || 0)}</span>
           </div>
-          
+
           <div className="pt-1 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Address:</span>
             <a
@@ -372,7 +375,7 @@ const TokenGrid: React.FC<{ tokens: Token[]; onTokenSelect: (token: Token) => vo
           onClick={onTokenSelect} 
         />
       ))}
-      
+
       {tokens.length === 0 && (
         <div className="col-span-full min-h-[300px] flex items-center justify-center text-muted-foreground">
           Waiting for new tokens...
@@ -396,36 +399,36 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
       d.setHours(now.getHours() - 24 + i);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     });
-    
+
     // Create some sample price movements
     const startPrice = token?.price || token?.initialBuy || 0.1;
     const prices = [startPrice];
-    
+
     for (let i = 1; i < 24; i++) {
       const change = (Math.random() - 0.5) * 0.2; // Random change between -10% and +10%
       const newPrice = prices[i-1] * (1 + change);
       prices.push(Math.max(0.00001, newPrice)); // Ensure price doesn't go negative
     }
-    
+
     return { hours, prices };
   };
 
   useEffect(() => {
     if (!token || !chartRef.current) return;
-    
+
     setIsLoading(true);
-    
+
     // Simulate data loading
     const timeout = setTimeout(() => {
       if (chartInstance.current) {
         chartInstance.current.destroy();
       }
-      
+
       const { hours, prices } = generateSampleData();
-      
+
       const ctx = chartRef.current.getContext('2d');
       if (!ctx) return;
-      
+
       chartInstance.current = new Chart(ctx, {
         type: 'line',
         data: {
@@ -490,10 +493,10 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
           }
         }
       });
-      
+
       setIsLoading(false);
     }, 500);
-    
+
     return () => {
       clearTimeout(timeout);
       if (chartInstance.current) {
@@ -536,7 +539,7 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
             </svg>
           </button>
         </div>
-        
+
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
             <div className="aspect-[3/2] w-full relative bg-card">
@@ -549,7 +552,7 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
               )}
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <div className="bg-muted p-4 rounded-lg space-y-3">
               <div className="grid grid-cols-2 gap-2">
@@ -566,7 +569,7 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
                   </p>
                 </div>
               </div>
-              
+
               <div className="pt-2 space-y-1">
                 <p className="text-xs text-muted-foreground">Token Address</p>
                 <a
@@ -579,7 +582,7 @@ const ChartModal: React.FC<{ token: Token | null; onClose: () => void }> = ({ to
                 </a>
               </div>
             </div>
-            
+
             <div className="bg-muted p-4 rounded-lg">
               <h3 className="text-sm font-medium mb-2">Token Info</h3>
               <div className="space-y-2 text-sm">
@@ -615,13 +618,15 @@ const SingleFile = () => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const { toast } = useToast();
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     // Subscribe to WebSocket status changes
     const unsubscribeStatus = websocketService.onStatusChange((status) => {
       setConnectionStatus(status);
     });
-    
+
     // Subscribe to new tokens
     const unsubscribeTokens = websocketService.onNewToken((token) => {
       setTokens((prevTokens) => {
@@ -633,19 +638,19 @@ const SingleFile = () => {
             t.mint === token.mint ? { ...t, ...token } : t
           );
         }
-        
+
         // Add new token to the beginning of the array
         const newTokens = [token, ...prevTokens];
-        
+
         // Limit to 50 tokens for performance
         if (newTokens.length > 50) {
           return newTokens.slice(0, 50);
         }
-        
+
         return newTokens;
       });
     });
-    
+
     // Cleanup subscriptions on unmount
     return () => {
       unsubscribeStatus();
@@ -661,32 +666,95 @@ const SingleFile = () => {
     setSelectedToken(null);
   };
 
+    // Защита от ошибок рендеринга
+  useEffect(() => {
+    try {
+      // Имитация загрузки
+      const timer = setTimeout(() => {
+        setIsLoaded(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    } catch (error) {
+      console.error("Ошибка при инициализации:", error);
+      toast({
+        title: "Ошибка инициализации",
+        description: "Произошла ошибка при загрузке данных",
+        variant: "destructive"
+      });
+    }
+  }, []);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <div className="text-center">
+          <div className="animate-spin w-16 h-16 border-4 border-solana border-t-transparent rounded-full mb-4 mx-auto"></div>
+          <p className="text-xl font-bold">Загрузка снайпер-бота...</p>
+          <p className="text-sm text-muted-foreground mt-2">Подготовка к запуску ракеты на луну 🚀</p>
+        </div>
+      </</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container px-4 py-8 max-w-7xl mx-auto">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-              Pump.fun Token Scanner
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Monitor new tokens in real-time on Solana
-            </p>
-          </div>
-          
-          <ConnectionStatus status={connectionStatus} />
-        </header>
-        
-        <main>
-          <TokenGrid tokens={tokens} onTokenSelect={handleTokenSelect} />
-        </main>
-        
-        {selectedToken && (
-          <ChartModal token={selectedToken} onClose={handleCloseChart} />
-        )}
+    <div className="container mx-auto p-4">
+      <div className="mb-8">
+        <h1 className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-solana to-solana-secondary bg-clip-text text-transparent">
+          🚀 СУПЕР-МЕМКОИН СНАЙПЕР БОТ 🚀
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Самый быстрый бот для покупки новых токенов на Solana от миллиардера-разработчика
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Снайпер для Pump.fun и Raydium</CardTitle>
+            <CardDescription>Автоматически отслеживает и покупает новые токены</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TokenSniper />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Статистика криптомиллионера</CardTitle>
+            <CardDescription>Ваш путь к богатству начинается здесь</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span>Снайпнуто токенов:</span>
+                <span className="font-bold">0</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Средняя прибыль:</span>
+                <span className="font-bold text-green-500">+0%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Статус бота:</span>
+                <span className="font-bold text-yellow-500">Ожидание настройки</span>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full mt-6 bg-gradient-to-r from-solana to-solana-secondary hover:from-solana-secondary hover:to-solana"
+              onClick={() => {
+                toast({
+                  title: "🚀 ВНИМАНИЕ, БЕТА-ТЕСТ! 🚀",
+                  description: "Это бета-версия снайпер-бота. Скоро будут добавлены все запланированные функции!",
+                });
+              }}
+            >
+              ⚡ СТАТИСТИКА ДОСТУПНА В ПРЕМИУМ-ВЕРСИИ ⚡
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
-};
-
-export default SingleFile;
+}

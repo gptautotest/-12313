@@ -28,7 +28,7 @@ localPort = 8083
 externalPort = 3000
 
 [workflows]
-runButton = "Rebuild and Start"
+runButton = "Super Rebuild and Start"
 
 [[workflows.workflow]]
 name = "Run"
@@ -83,3 +83,20 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "export NODE_OPTIONS=\"--max-old-space-size=2048\" && npm run build && npm run preview -- --host=0.0.0.0 --port=3000"
+
+[[workflows.workflow]]
+name = "Super Rebuild and Start"
+author = 40936906
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Убийство всех других процессов перед запуском"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill node || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_OPTIONS=\"--max-old-space-size=4096\" && npm run build && npm run preview -- --host=0.0.0.0 --port=3000"

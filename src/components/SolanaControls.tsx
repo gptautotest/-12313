@@ -14,33 +14,53 @@ const SolanaControls: React.FC = () => {
   const [network, setNetwork] = useState<'devnet' | 'mainnet'>('devnet');
 
   useEffect(() => {
-    console.log("Обновление баланса...");
-    if (privateKey) {
-      refreshBalance();
-    }
+    console.log("💹 Обновление баланса...");
+    let isActive = true;
+    
+    const doRefresh = async () => {
+      if (privateKey && isActive) {
+        await refreshBalance();
+      }
+    };
+    
+    doRefresh().catch(err => {
+      console.error("🚨 Непредвиденная ошибка в useEffect:", err);
+    });
+    
+    // Функция очистки для предотвращения обновления состояния после размонтирования
+    return () => {
+      isActive = false;
+    };
   }, [privateKey, network]);
 
-  // Обновление баланса
+  // Обновление баланса с защитой от ошибок
   const refreshBalance = async () => {
-    if (privateKey) {
-      console.log("Запрос обновления баланса с приватным ключом...");
-      try {
-        const newBalance = await updateBalanceV2(privateKey);
-        console.log("Полученный баланс:", newBalance);
-        // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
-        setBalance(newBalance !== null ? newBalance : 0);
-        setConnectionStatus('connected');
-      } catch (error) {
-        console.error("Ошибка при обновлении баланса:", error);
+    if (!privateKey) return;
+    
+    console.log("🔄 Запрос обновления баланса с приватным ключом...");
+    setConnectionStatus('connecting');
+    
+    try {
+      // Оборачиваем в Promise.resolve для предотвращения unhandledrejection
+      const newBalance = await Promise.resolve().then(() => updateBalanceV2(privateKey));
+      
+      console.log("💰 Полученный баланс:", newBalance);
+      // Даже если баланс 0, устанавливаем его (может быть пустой кошелек)
+      setBalance(newBalance !== null ? newBalance : 0);
+      setConnectionStatus('connected');
+    } catch (error) {
+      console.error("🚨 Ошибка при обновлении баланса:", error);
+      setConnectionStatus('disconnected');
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить баланс. Проверьте консоль для деталей.",
+        variant: "destructive"
+      });
+    } finally {
+      // Гарантируем, что статус не останется в "connecting" навсегда
+      if (connectionStatus === 'connecting') {
         setConnectionStatus('disconnected');
-        toast({
-          title: "Ошибка",
-          description: "Не удалось обновить баланс",
-          variant: "destructive"
-        });
       }
-    } else {
-      console.log("Не могу обновить баланс: приватный ключ не установлен");
     }
   };
 
